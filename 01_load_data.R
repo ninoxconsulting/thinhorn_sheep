@@ -9,15 +9,14 @@ library(sf)
 library(fs)
 library(readxl)
 library(lubridate)
-
+library(hms)
+library(ggplot2)
 
 # read in the summary data 
 
 data_dir <- fs::path("00_raw_data")
 
-
 #list.files(data_dir)
-library(hms)
 
 ref <- read_xlsx(fs::path(data_dir, "Spatsizi Sheep Collar Data-for range project.xlsx"),
                  skip = 1, 
@@ -36,7 +35,8 @@ ref <- ref |>
          "Animal_WLH", "Eartag", "Age_annuli", "sheep_class", "sex", "End_Date")
 
 
-
+# write this out and manually add the End data shown below 
+write.csv(ref, fs::path("01_clean_data", "reference.csv") )
 
 
 
@@ -55,7 +55,6 @@ dead_tags <- purrr::map_dfr(dtags, function(x){
 
 }) |> bind_rows()
   
-  
 # summary 
 dtag_sum <- dead_tags |> 
   group_by(tag_id) |> 
@@ -64,6 +63,81 @@ dtag_sum <- dead_tags |>
 # confirmed that this matches the tags in the total transmission data so will use this source 
 
 # get last date for each of these tags to update ref 
+last_date <- dead_tags |> 
+  select(Date, tag_id) |> 
+  group_by(tag_id) |> 
+  summarise(max(Date))
+
+
+# plot the frequency to check for breaks 
+ggplot(dead_tags, aes(x = Date, y = Temperature)) +
+  geom_line() +
+  facet_wrap(~tag_id)+
+  #scale_x_date(date_labels = "%b %Y")
+  scale_x_date(date_breaks = "3 month", date_labels = "%b %d %Y")
+
+
+
+
+#### 55680 #######
+s1 <- dead_tags |> 
+  dplyr::filter(tag_id == 55680)
+
+# plot the frequency to check for breaks 
+ggplot(s1, aes(x = Date, y = Temperature)) +
+  geom_line() +
+  #scale_x_date(date_labels = "%b %Y")
+  scale_x_date(date_breaks = "3 month", date_labels = "%b %d %Y")
+
+
+## checked this record to find the break
+s1_dates <- s1 |> 
+  select(Date, tag_id) |> 
+  group_by(Date,tag_id) |> 
+  count()
+
+# 
+ggplot(s1_dates, aes(x = Date, y = n)) +
+  geom_line() +
+  #scale_x_date(date_labels = "%b %Y")
+  scale_x_date(date_breaks = "3 month", date_labels = "%b %d %Y") 
+
+## questions 
+# for 55680-1 and 55680-2 both tagged within short time frame, 
+# tag freq slow down around March 27 and March 28 (potential there is UTC time?)
+# then tag swapped? and then redeployed? 
+# Q: was 55680-1 a dud? 
+
+
+#### 55686 #######
+s2 <- dead_tags |> 
+  dplyr::filter(tag_id == 55686)
+
+# plot the frequency to check for breaks 
+ggplot(s2, aes(x = Date, y = Temperature)) +
+  geom_line() +
+  #scale_x_date(date_labels = "%b %Y")
+  scale_x_date(date_breaks = "3 month", date_labels = "%b %d %Y")
+
+
+## checked this record to find the break
+s2_dates <- s2 |> 
+  select(Date, tag_id) |> 
+  group_by(Date,tag_id) |> 
+  count()
+
+# 
+ggplot(s2_dates, aes(x = Date, y = n)) +
+  geom_line() +
+  #scale_x_date(date_labels = "%b %Y")
+  scale_x_date(date_breaks = "3 month", date_labels = "%b %d %Y") 
+
+
+## seems something funcky with this tag as the frequency of 
+# counts seemed to drop at the end before tag died. 
+
+
+
 
 
 
