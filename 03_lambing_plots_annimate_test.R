@@ -91,8 +91,6 @@ animate(anim, nframes = 365, fps = 10)
 
 
 
-2
-
 
 
 
