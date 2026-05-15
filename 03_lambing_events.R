@@ -1,6 +1,8 @@
 ## identify ewes and potential partuition dates and locations
-
-
+## Lambing dates May 1 - June 15th (as per Enns et al + refernces)
+# For ewes, estimate parturition timing and duration based on changes in 
+# movement rate, proximity to herd, 
+# and within expected lambing season (1 May to June 30th). 
 library(dplyr)
 library(sf)
 library(fs)
@@ -15,20 +17,18 @@ clean_dir <- fs::path("01_clean_data")
 out_dir <- fs::path("02_draft_outputs/01_lamb_figures")
 
 
-allpts <- read.csv( fs::path("01_clean_data", "location_steps_test.csv")) 
-
+allpts <- read.csv(fs::path("01_clean_data", "location_steps_all.csv")) 
 
 # remove unwated cols 
 pts <- allpts |> 
-  select(-X, -CollarSerialNumber , -Year , -Hour, -Minute, -X2D.3D, 
-         -Date, -Time.Zone, -tag_id.x, -tag_id.y, -capture_date, -time,
-         -Recorder, -Capture_GPS_Zone_NAD_83., -Northing, -Westing,
+  select(-X.1, -CollarSerialNumber , -Hdop,-NumSats, -FixTime, -Year , -Hour, -Minute, -X2D.3D, 
+         -Date, -Time.Zone, -tag_id.x, -tag_id.y, -capture_date, -time,-date_pst.x,
+         -Recorder, -Capture_GPS_Zone_NAD_83., -Northing, -Westing,-x,-y,
          -Animal_WLH, -Eartag, -End_Date, -Comments, - date_time,
          -lat_prior, -long_prior  , -time_prior , -cos_turn, -gps_spike     
          ) |> 
   mutate(date_time_pst = ymd_hms(date_time_pst)) |> 
-  mutate(date_pst = as_date(date_time_pst)) |> 
-  mutate(year_pst = year(date_pst))
+  mutate(date_pst = as_date(date_pst.y)) 
 
 
 
@@ -60,7 +60,8 @@ be <- ewes |>
   filter(Julianday >= jstart & Julianday <= jend) |> 
   group_by(tag_idn, date_pst) |>
   mutate(speed_ave_day = mean(speed_ave, na.rm = TRUE),
-         speed_median_day = median(speed_ave, na.rm = TRUE)) 
+         speed_median_day = median(speed_ave, na.rm = TRUE)) |> 
+  ungroup()
 
 
 # no unique females and age class (n = 23)
@@ -110,6 +111,7 @@ for(ii in beu){
   
   purrr::map(ewi_years, function(x){
     print(x)
+    x = 2024
     
     ewi_year <- ewi |> 
       filter(year_pst == x)
@@ -130,9 +132,14 @@ for(ii in beu){
   
 }
 
+
+
+
+
 # todo: 
 # generate a kernal density estimate based on moving average of 10 days 
 # estimate area and then add to plot as background line? 
+# calculate a three day average movement event (See de mars, 2013)
 
 
 
@@ -249,34 +256,6 @@ ggplot(s2_dates, aes(x = Date, y = n)) +
 ## seems something funcky with this tag as the frequency of 
 # counts seemed to drop at the end before tag died. 
 
-
-
-
-
-
-
-
-# read in the location dates 
-# update this to latest folder 
-latest_dir <-  fs::path(data_dir, "20260325")          
-list.files(latest_dir)       
-loc <- read.table(fs::path(latest_dir, "Cumulative_D_13197_202623181141.txt"), header = T, sep = ",")
-
-
-
-# summary 
-tag_sum <- loc |> 
-  group_by(CollarSerialNumber) |> 
-  count() |> 
-  mutate(tag_id = as.character(CollarSerialNumber)) 
-
-tag_date <- loc |> 
-  group_by(CollarSerialNumber) |> 
-  slice_max(Date) |> 
-  select(CollarSerialNumber, Date ) |> 
-  unique()
-
-check <- left_join(tag_sum, dtag_sum)
 
 
 
