@@ -110,9 +110,16 @@ dur_hist
 
 
 
-## Lambing dates 3rd May - June 14 (enns et al. 2024)
-# 
-# out <- out %>%
-#   group_by(tag.id) |> 
-#   mutate(diff = difftime(date_time, lag(date_time),  units = c("hours")), 
-#          diff = as.numeric(diff)) 
+#################
+
+## get base data 
+
+aoi = st_read(fs::path(data_dir, "aoi.gpkg"))
+ 
+cded_raw <- bcmaps::cded(aoi)
+  
+cded <- terra::rast(cded_raw)
+  
+
+
+
