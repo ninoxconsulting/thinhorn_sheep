@@ -376,13 +376,11 @@ kde50 <- kde |>
   st_transform(crs = 3005) 
 
 
-
 # get elevation  data - virtual raster
 aoi = st_read(fs::path("00_raw_data", "aoi.gpkg"))
 cded_raw <- bcmaps::cded(aoi)
 cded <- terra::rast(cded_raw) 
 cded_3005 <- terra::project(cded, "EPSG:3005")
-
 
 
 
