@@ -107,7 +107,7 @@ ttt <- tt |>
       #write_sf(ttsf, fs::path("01_clean_data", "location_pointsTESST.gpkg"))
 
 
-# 3) convert to Pacific Standard time (PST)
+## 3) convert to Pacific Standard time (PST)
 # Q for Bill - do you want in PST or Summer time
 
 tfile_sub <- ttt |> 
@@ -147,7 +147,6 @@ sf_pts <- st_as_sf(
   crs = 3005,
   remove = FALSE
 )
-
 
 
 # get unique tags 
@@ -305,48 +304,10 @@ adehab_metrics <- purrr::map(uts, function(x){
 
 })
 
-# update the 20th dataset in list to convert to character from numeric for mcp_area_3d column
-## STILLL NEED TO RERUN THIS ONE AS MISSING 20 
-
-aa <- adehab_metrics[-20]
-
-adehab_metrics_all <- aa |> 
+adehab_metrics_all <- adehab_metrics |> 
   bind_rows()
-  
-
-
 
 all = left_join( tfile_subLL, adehab_metrics_all, by = c("tag_idn","date_time_pst")) 
-
-
-
-
-
-
-## Join this dataset back together with the manually calculated metrics 
-
-# 
-# max_speed <- 15      # m/s
-# max_angle <- 150     # degrees
-# 
-# tr <- tr %>%
-#   group_by(id) %>%
-#   arrange(date) %>%
-#   mutate(
-#     speed_m_s = dist / dt,
-#     speed_in  = lag(speed_m_s),
-#     speed_out = speed_m_s,
-#     angle_deg = abs(rel.angle) * 180 / pi,
-#     gps_error = case_when(
-#       speed_in  > max_speed &
-#         speed_out > max_speed &
-#         angle_deg > max_angle ~ TRUE,
-#       TRUE ~ FALSE
-#     )
-#   ) %>%
-#   ungroup()
-# 
-# sf_pts$gps_error <- tr$gps_error
 
 
 
@@ -396,58 +357,34 @@ traj_df <- traj_df |>
 ## 4) potential to drop more records based on HPOD values (although not great outcomes: )
 
 
-traj_df
-
 traj_df <- traj_df %>%
   mutate(date_time_pst = format(date_time_pst, "%Y-%m-%d %H:%M:%S"))
 
 
-## maybe recalculate the speed etc? 
 
 
+########################################
+## TODO: maybe recalculate the speed etc? 
+######################################
 
 
-# write this out and manually add the End data shown below 
-write.csv(traj_df, fs::path("01_clean_data", "location_steps_all.csv"))
+## filter down some columns 
+out <- traj_df |> 
+  select(-CollarSerialNumber, -Hour, -Minute, -X2D.3D, 
+         -Date, -Time.Zone, -tag_id.x, -tag_id.y,  -time,-date_pst.x,
+         -Northing, -Westing, -Animal_WLH, -Eartag,-Comments, -date_time, 
+         -Recorder, -Capture_GPS_Zone_NAD_83., -lat_prior, -long_prior  , -time_prior , 
+         -cos_turn, -gps_spike, -x, -y )
 
 
+out_sf <- st_as_sf(out, coords = c("X", "Y"), crs = 3005)
 
-# # check durations
-# tfile_dur <- ttt |> 
-#   group_by(tag_idn, sex, sheep_class, Age_annuli ) |> 
-#   summarise(min_date = min(Date), max_date = max(Date), duration = max_date - min_date)
-#   
-# # by sheep class
-# dur_plot_class <- ggplot(tfile_dur, aes(y=factor(tag_idn), color = sex)) +  
-#   geom_segment(aes(x=min_date, xend=max_date, y=factor(tag_idn), yend=factor(tag_idn)), size=1)+  
-#   xlab("Date") + ylab("Tag") +
-#   scale_color_viridis_d(begin = 0.2, end = 0.8)+
-#   facet_wrap(~ sheep_class, scales = "free_y") #+
-# 
-# 
-# dur_plot  
-# 
-# # by age annuli
-# dur_plot_age <- ggplot(tfile_dur, aes(y=factor(tag_idn), color = sex)) +  
-#   geom_segment(aes(x=min_date, xend=max_date, y=factor(tag_idn), yend=factor(tag_idn)), size=1)+  
-#   xlab("Date") + ylab("Tag") +
-#   scale_color_viridis_d(begin = 0.2, end = 0.8)+
-#   facet_wrap(~ Age_annuli, scales = "free_y") #+
-# 
-# dur_plot_age  
+# write this out 
+write.csv(out, fs::path("01_clean_data", "location_steps_all.csv")) # filtered down cols
+write.csv(traj_df, fs::path("01_clean_data", "location_steps_all_raw.csv")) # all columns 
 
-
-# dur_hist <- ggplot(dur, aes(x= duration))+  
-#   geom_histogram() + #fill="white", position="dodge") +  
-#   scale_color_viridis_d()+
-#   #facet_wrap(~year)+  
-#   xlab("duration (days)")   
-# 
-# dur_hist  
-
-
-## generate a summary of how many tags - duration and type. 
-
+# write out subset cols as sf object 
+st_write(out_sf, fs::path("01_clean_data", "location_steps_all.gpkg"), append = FALSE)
 
 
 
