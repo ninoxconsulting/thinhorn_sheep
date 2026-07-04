@@ -22,20 +22,21 @@ library(ggplot2)
 # read in the summary data 
 
 clean_dir <- fs::path("01_clean_data")
-out_dir <- fs::path("02_draft_outputs/01_lamb_figures")
+out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260703")
 
-allpts <- read.csv(fs::path("01_clean_data", "location_steps_all_raw.csv")) 
+#allpts <- read.csv(fs::path("01_clean_data", "location_steps_all_raw_20260703.csv"))  # issues with date field and csv
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260703.gpkg")) |> 
+  st_drop_geometry()
 
 # remove unwated cols 
 pts <- allpts |> 
-  select(-X.1, -CollarSerialNumber , -Hdop,-NumSats, -FixTime, -Year , -Hour, -Minute, -X2D.3D, 
-         -Date, -Time.Zone, -tag_id.x, -tag_id.y, -capture_date, -time,-date_pst.x,
-         -Recorder, -Capture_GPS_Zone_NAD_83., -Northing, -Westing,-x,-y,
-         -Animal_WLH, -Eartag, -End_Date, -Comments, - date_time,
-         -lat_prior, -long_prior  , -time_prior , -cos_turn, -gps_spike     
-         ) |> 
-  mutate(date_time_pst = ymd_hms(date_time_pst)) |> 
-  mutate(date_pst = as_date(date_pst.y)) 
+  select( -Hdop,-NumSats, -FixTime, -Year,
+          -End_Date) |> 
+  mutate(date_time_pst1 = format(as.POSIXct(date_time_pst), "%Y-%m-%d %H:%M:%S")) |> 
+  mutate(date_time_pst = ymd_hms(date_time_pst1)) |> 
+  mutate(date_pst = as_date(date_time_pst)) |> 
+  select(-date_time_pst1)
+
 
 #### Sub set to Ewes 
 # get list of ewes
@@ -53,9 +54,9 @@ Julianday <- function(x) {
 
 # calculate the julian date for May 1st and June 30th
 jstart <- Julianday(ymd("2024-05-01"))
-jend <- Julianday(ymd("2024-06-10"))
-#jstart <- Julianday(ymd("2023-05-01"))
-#end <- Julianday(ymd("2023-06-30"))
+jend <- Julianday(ymd("2024-06-30"))
+#jstart <- Julianday(ymd("2025-05-01"))
+#end <- Julianday(ymd("2025-06-30"))
 
 
 #120 - 183
@@ -68,14 +69,14 @@ be <- ewes |>
   ungroup()
 
 
-# no unique females and age class (n = 23)
+# no unique females and age class (n = 23) - for usable females 21 had data over the lambing time window, 
 beu <- unique(be$tag_idn)
 
 
-# for each ewe and each year plot the steplength and mcp over three years. 
+# for each ewe and each year plot the step length and mcp over three years. 
 for(ii in beu){
   
-  #ii <-beu[7]
+ #ii <-beu[21]
   
   print(ii)
   
@@ -87,28 +88,26 @@ for(ii in beu){
   age_annuali_capture
   
   ewi_years = unique(ewi$year_pst)
+  date_collared = unique(ewi$capture_date)
+  preg_2024 <- unique(ewi$pregnant_2024)
+  preg_2025 <- unique(ewi$pregnant_2025)
+  capture_preg_status = ifelse(preg_2024 %in% c("", "na"), preg_2025, preg_2024)
+    
+  #print(capture_preg_status)
+#}
   
-  # #daily average
-  # ewi_day <- ewi |> 
-  #   dplyr::select(tag_idn, year_pst ,Julianday,date_pst, speed_ave_day,speed_median_day) |> 
-  #   unique()
-  # 
-  # sheep_move <- ggplot(ewi_day, aes(x = Julianday, y = speed_ave_day, colour = year_pst)) +
-  #   geom_line() +
-  #   #geom_point()+
-  #   facet_wrap(~year_pst)#+
-  #   #ylim(0,1500)
-  # 
-  # sheep_move
-  # 
-  # sheep_move <- ggplot(ewi_day, aes(x = Julianday, y = speed_median_day, colour = year_pst)) +
-  #   geom_line() +
-  #   #geom_point()+
-  #   facet_wrap(~year_pst)#+
-  # #ylim(0,1500)
-  # 
-  # sheep_move
-  # 
+  # # #daily average
+  #  ewi_day <- ewi |> 
+  #    dplyr::select(tag_idn, year_pst ,Julianday,date_pst, speed_ave_day,speed_median_day) |> 
+  #    unique()
+  #  
+  #  sheep_move <- ggplot(ewi_day, aes(x = Julianday, y = speed_ave_day, colour = as.character(year_pst))) +
+  #    geom_line()+
+  #    #geom_point()+
+  #    facet_wrap(~year_pst, nrow = 3)#+
+  #    #ylim(0,1500)
+  # # 
+  #  sheep_move
   
   purrr::map(ewi_years, function(x){
     print(x)
@@ -116,40 +115,38 @@ for(ii in beu){
     #x <- ewi_years[1]
     
     ewi_year <- ewi |> 
-      filter(year_pst == x)
+      filter(year_pst == x) |> 
+      select(tag_idn, date_time_pst, speed_ave, mcp_area_3d) 
    
     median_step_length = median(ewi_year$speed_ave, na.rm = TRUE)
     mean_step_length = mean(ewi_year$speed_ave, na.rm = TRUE)
     
     
     # all column to highlight where speed is < 50% of median for >36 hours
-    
     ewi_year <- ewi_year |> 
       mutate(low_speed_median = ifelse(speed_ave < (0.5*median_step_length), 1, 0)) |> 
       mutate(low_speed_mean = ifelse(speed_ave < (0.5*mean_step_length), 1, 0))
     
   
-      # How many sequences have at least 36 consecutive observations with value equal or greater thanmean or median step length
+    # How many sequences have at least 36 consecutive observations with value equal or greater than mean or median step length
       median_length = trle_cond(x = c(ewi_year$low_speed_median), a_op = "gte", a = 36, b_op = "gte", b = 1)
       mean_length = trle_cond(x = c(ewi_year$low_speed_mean), a_op = "gte", a = 36, b_op = "gte", b = 1)
        
-    
     # conversion for scales from movement rate to mcp area
-    mcp_area_3d = 0.01
+    #mcp_area_3d_scale = 0.01
   
     sheep_move_year <- ggplot(ewi_year, aes(x = date_time_pst)) +
       geom_hline(yintercept=median_step_length, linetype="dashed", color = "red")+
       geom_line(aes(y =speed_ave), colour= "darkgrey") +
-      #geom_point(aes(y =speed_ave), size = 0.2,colour= "darkgrey")+
-      geom_line(aes(y =mcp_area_3d), size = 0.2,colour= "blue", linetype = "longdash")+
-      
+      ##geom_point(aes(y =speed_ave), size = 0.2,colour= "darkgrey")+
+      geom_line(aes(y = as.numeric(mcp_area_3d)), size = 0.2,colour= "blue", linetype = "longdash")+
       scale_y_continuous("movement rate (m/h)", sec.axis = sec_axis(~.*mcp_area_3d, name = "mcp three day ave")) +
       
-      labs(title = paste0("Tag ID: ", ii, " Age annuali at capture: ", age_annuali_capture," Year: ", x),
+      labs(title = paste0("Tag ID:", ii,  ",  Capture: ", date_collared,",  Capture Age annuali: ", age_annuali_capture, ", Preg on capture: " ,capture_preg_status, ", Plot Year: ", x),
            x = "Date", y = "movement rate (m/h)")+ 
       scale_x_datetime(date_breaks = "1 week", date_labels = "%b %d")+
-      # add top left annotation for number of consecutive days below 50% of median and mean step length
-      #geom_text("text", x = median_length )
+      ## add top left annotation for number of consecutive days below 50% of median and mean step length
+      ##geom_text("text", x = median_length )
       annotate(geom = 'text', label = paste0("50% below median > 36hrs =", median_length), x = min(ewi_year$date_time_pst), y = max(ewi_year$speed_ave), hjust = 0, vjust = 1)+
       annotate(geom = 'text', label = paste0("50% below mean > 36hrs =", mean_length), x = min(ewi_year$date_time_pst), y = Inf-1, hjust = 0, vjust = 1)
       #ylim(0,1600)
@@ -163,6 +160,24 @@ for(ii in beu){
  
   
 }
+
+### TO DO: EWES
+# review the plots to determine potential lambing events. 
+# double check these on the map 
+# double check with mcp areas 
+
+# compare multiple tags to see which tags are a family groups
+#	Plot multiple years on same axis 
+
+## FOR ALL: 
+# generate KDE for entire range per year and also for season (lambing or rutting)
+
+
+
+
+
+
+
 
 
 #######################################################################
