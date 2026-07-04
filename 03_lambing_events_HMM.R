@@ -1,4 +1,7 @@
 # HMM example 
+
+## LOW PRIORITY - jULY 2026
+
 #https://cran.r-project.org/web/packages/moveHMM/vignettes/moveHMM-example.pdf
 #https://cran.r-project.org/web/packages/moveHMM/vignettes/moveHMM-starting-values.pdf
 
