@@ -4,13 +4,35 @@ format: html
 editor: visual
 ---
 
-## Thinhorn Sheep movement Analysis 
+## Thinhorn Sheep : 
 
-This document lays out the methods used in the analysis for Thinhorn Sheep
+### Stone sheep movement Analysis
 
-1\) Review data - QA/QC
+This document lays out the methods used in the analysis for Thinhorn Sheep lambing and demographic summary.
 
-## Running Code
+Stone sheep were collared with GPS ETS collars (add details XXX) in the Spatzizi range in 2024 and 2025. This analysis represents sheep movement up to June 29th 2026 at which point XX were still actively recording locations.
+
+Aims:
+
+The aim of the project was to refine demographic information regarding the spatzizi herd. This include:
+
+1\) identifying sub-groupings or family groups within the range,
+
+2\) Identify possible lambing sites (for ewes)
+
+3\) Characterise movment or rams during the Rut
+
+4\) Identify key pinch points or important movement corridors used by Stone sheep
+
+## Methodology 
+
+1\) Standardize and clean GPS data (QA/QC)
+
+Review raw location data and restrict the sheep id by start and end dates (if known and or applicable). Limited to high quality GPS fix types (3d fix only, removed 2d fix) convert to pacific daylightsaving time zone (largely based on use of lambing period).
+
+Estimate a series of variables to characterise movment for each step length. These include distance (m), bearing, turn angle, time differrence (hours), speed (m/hr). We then filtered moments that were uncharacteristic of known moment patterns of stone sheep (based on Ens et al. XXXX ) and distribution of all data. We excluded locations where speed was above 5.5km/h, locations in which the incoming speed is 2km/h and outgoing speed is 2km/h and the cosine of the turning angle is less than -0.97 (REF). At each point where outlier locations were removed the values were recalculated to ensure accurate speed and distance metrics were used. For most tags locations were recorded hourly.
+
+2\) Calculate movement metrics
 
 When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
 
@@ -26,3 +48,15 @@ You can add options to executable code like this
 ```
 
 The `echo: false` option disables the printing of code (only output is displayed).
+
+### Results: 
+
+From 2024 to 2026, fifty-two sheep were collared (using 45 collars), this included 23 females and 29 males. In addition to capture information Age by annuli and sheep age class were recorded along with pregnancy for ewes.
+
+## to add: summary of demographics 
+
+age class
+
+tag duration,
+
+etc
