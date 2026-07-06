@@ -7,6 +7,7 @@
 #install.packages("nseq")
 #install.packages("GGally")
 #install.packages("corrplot")
+
 library(corrplot)
 library(GGally)
 library(nseq)
@@ -22,7 +23,7 @@ library(ggplot2)
 # read in the summary data 
 
 clean_dir <- fs::path("01_clean_data")
-out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260703")
+out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260706")
 
 #allpts <- read.csv(fs::path("01_clean_data", "location_steps_all_raw_20260703.csv"))  # issues with date field and csv
 allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260703.gpkg")) |> 
@@ -76,7 +77,7 @@ beu <- unique(be$tag_idn)
 # for each ewe and each year plot the step length and mcp over three years. 
 for(ii in beu){
   
- #ii <-beu[21]
+# ii <-beu[21]
   
   print(ii)
   
@@ -84,32 +85,26 @@ for(ii in beu){
     filter(tag_idn == ii) |> 
     arrange(date_time_pst)
   
-  age_annuali_capture <- unique(ewi$Age_annuli)
-  age_annuali_capture
+  # write out gps data to review 
+  out_sf <- st_as_sf(ewi, coords = c("Longitude", "Latitude"), crs = 4326)
+  out_sf <- st_transform(out_sf, crs = 3005)
   
+  # write out subset cols as sf object 
+  st_write(out_sf, fs::path(out_dir, paste0("location_lamb_", ii, ".gpkg")), append = FALSE)
+  
+#}
+  
+  # GET INFO FOR HEADING
+  age_annuali_capture <- unique(ewi$Age_annuli)
   ewi_years = unique(ewi$year_pst)
   date_collared = unique(ewi$capture_date)
   preg_2024 <- unique(ewi$pregnant_2024)
   preg_2025 <- unique(ewi$pregnant_2025)
   capture_preg_status = ifelse(preg_2024 %in% c("", "na"), preg_2025, preg_2024)
-    
-  #print(capture_preg_status)
-#}
-  
-  # # #daily average
-  #  ewi_day <- ewi |> 
-  #    dplyr::select(tag_idn, year_pst ,Julianday,date_pst, speed_ave_day,speed_median_day) |> 
-  #    unique()
-  #  
-  #  sheep_move <- ggplot(ewi_day, aes(x = Julianday, y = speed_ave_day, colour = as.character(year_pst))) +
-  #    geom_line()+
-  #    #geom_point()+
-  #    facet_wrap(~year_pst, nrow = 3)#+
-  #    #ylim(0,1500)
-  # # 
-  #  sheep_move
-  
+
+  # LOOP THROUGH EACH YEAR FOR EACH EWE
   purrr::map(ewi_years, function(x){
+    
     print(x)
     #x = 2024
     #x <- ewi_years[1]
@@ -133,7 +128,7 @@ for(ii in beu){
       mean_length = trle_cond(x = c(ewi_year$low_speed_mean), a_op = "gte", a = 36, b_op = "gte", b = 1)
        
     # conversion for scales from movement rate to mcp area
-    #mcp_area_3d_scale = 0.01
+    mcp_area_3d = 0.01
   
     sheep_move_year <- ggplot(ewi_year, aes(x = date_time_pst)) +
       geom_hline(yintercept=median_step_length, linetype="dashed", color = "red")+
@@ -147,9 +142,11 @@ for(ii in beu){
       scale_x_datetime(date_breaks = "1 week", date_labels = "%b %d")+
       ## add top left annotation for number of consecutive days below 50% of median and mean step length
       ##geom_text("text", x = median_length )
-      annotate(geom = 'text', label = paste0("50% below median > 36hrs =", median_length), x = min(ewi_year$date_time_pst), y = max(ewi_year$speed_ave), hjust = 0, vjust = 1)+
-      annotate(geom = 'text', label = paste0("50% below mean > 36hrs =", mean_length), x = min(ewi_year$date_time_pst), y = Inf-1, hjust = 0, vjust = 1)
-      #ylim(0,1600)
+      #annotate(geom = 'text', label = paste0("50% below median > 36hrs =", median_length), x = min(ewi_year$date_time_pst), y = 1600, hjust = 0, vjust = 1)+
+      annotate(geom = 'text', label = paste0("50% below mean > 36hrs =", mean_length), x = min(ewi_year$date_time_pst), y = 1600, hjust = 0, vjust = 1)+ 
+      #ylim(0,1800)
+      coord_cartesian(ylim = c(0,1600))
+    
     
     sheep_move_year
     
