@@ -26,10 +26,24 @@ clean_dir <- fs::path("01_clean_data")
 out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260706")
 
 #allpts <- read.csv(fs::path("01_clean_data", "location_steps_all_raw_20260703.csv"))  # issues with date field and csv
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260703.gpkg")) |> 
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260703_TEST.gpkg")) |> 
   st_drop_geometry()
 
-# remove unwated cols 
+# # export data for App
+# exportcsv <- allpts |> select(tag_idn, date_pst.y, date_time_pst, Latitude, Longitude) |> 
+#   mutate(date_time_pst1 = format(as.POSIXct(date_time_pst), "%Y-%m-%d %H:%M:%S")) |> 
+#   mutate(date_time_pst = ymd_hms(date_time_pst1)) |> 
+#   rename("id"= tag_idn, 
+#          "lat" = Latitude,
+#          "lon" = Longitude,
+#          "datetime"=  date_time_pst, 
+#          "date" = date_pst.y) |> 
+#   select(id, lat, lon, datetime, date_time_pst1, date) #|> 
+#   #filter(!is.na(date))
+# 
+# st_write(exportcsv, path("01_clean_data", "sheep_data.csv"))
+
+# remove unwanted cols 
 pts <- allpts |> 
   select( -Hdop,-NumSats, -FixTime, -Year,
           -End_Date) |> 
@@ -77,7 +91,7 @@ beu <- unique(be$tag_idn)
 # for each ewe and each year plot the step length and mcp over three years. 
 for(ii in beu){
   
-# ii <-beu[21]
+ ii <-beu[1]
   
   print(ii)
   
@@ -151,7 +165,7 @@ for(ii in beu){
     sheep_move_year
     
     print(sheep_move_year)
-    ggsave(filename = fs::path(out_dir, paste0("ewe_",ii, "_", x, "v2.png")), plot = sheep_move_year, width = 11, height = 6)
+    ggsave(filename = fs::path(out_dir, paste0("ewe_",ii, "_", x, "v2TEST.png")), plot = sheep_move_year, width = 11, height = 6)
     
   })
  
