@@ -227,11 +227,190 @@ traj_df <- tfile_subLL %>%
   ) %>%
   ungroup()
 
+
+traj_df <- traj_df |> 
+  mutate(gps_spike_manual = case_when(
+    tag_idn == "55670" & date_time_pst == "2024-03-08 04:00:00" ~ TRUE,
+    tag_idn == "55670" & date_time_pst == "2024-03-31 08:00:00" ~ TRUE,
+    tag_idn == "55670" & date_time_pst == "2024-04-20 21:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2024-04-24 22:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2024-04-25 04:01:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2024-04-25 05:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2024-04-27 18:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2024-05-08 23:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2024-05-24 02:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2024-05-27 23:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2024-06-14 03:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2025-02-02 00:00:00" ~ TRUE, 
+    #tag_idn == "55670" & date_time_pst == "2025-02-23 01:00:00" ~ TRUE, 
+    #tag_idn == "55670" & date_time_pst == "2025-02-23 02:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2025-03-05 22:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2025-04-02 04:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2025-04-20 01:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2025-05-11 16:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2025-08-09 21:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2025-12-29 06:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2026-02-01 01:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2026-02-08 08:00:00" ~ TRUE, 
+    tag_idn == "55670" & date_time_pst == "2026-05-28 17:00:00" ~ TRUE,
+    tag_idn == "55670" & date_time_pst == "2026-06-04 16:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2024-03-08 00:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2024-04-20 22:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2024-12-08 05:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2025-01-12 04:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2025-05-26 14:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2025-08-10 12:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2025-09-14 19:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2025-10-12 03:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2025-12-15 04:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2026-03-07 22:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2026-03-14 21:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2026-04-19 03:00:00" ~ TRUE,
+    tag_idn == "55671" & date_time_pst == "2026-05-15 23:00:00" ~ TRUE,
+    tag_idn == "556691" & date_time_pst == "2024-03-24 13:00:00" ~ TRUE,
+    tag_idn == "556691" & date_time_pst == "2024-05-26 16:00:00" ~ TRUE,
+    tag_idn == "556692" & date_time_pst == "2025-10-19 00:00:00" ~ TRUE,
+    tag_idn == "556692" & date_time_pst == "2025-11-09 13:00:00" ~ TRUE,
+    tag_idn == "556692" & date_time_pst == "2025-11-09 11:00:00" ~ TRUE,
+    tag_idn == "556692" & date_time_pst == "2025-11-16 01:00:00" ~ TRUE,
+    tag_idn == "556692" & date_time_pst == "2025-12-06 20:00:00" ~ TRUE,
+    tag_idn == "556692" & date_time_pst == "2026-03-09 01:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2024-10-06 01:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2024-12-23 10:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2025-04-04 22:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2025-06-04 22:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2025-06-15 03:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2026-01-04 05:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2026-02-08 00:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2026-03-31 17:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2026-05-02 23:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2026-05-31 00:00:00" ~ TRUE,
+    tag_idn == "55672" & date_time_pst == "2026-05-31 05:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2024-04-07 02:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2024-04-28 06:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2024-05-21 03:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2024-05-23 20:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2024-05-27 14:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-03-08 20:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-05-04 02:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-05-25 07:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-05-28 02:00:00" ~ TRUE,
+    #tag_idn == "55673" & date_time_pst == "2025-06-08 20:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-06-15 06:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-07-21 20:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-08-17 01:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-12-13 19:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2025-12-14 05:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2026-01-12 00:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2026-02-08 00:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2026-03-01 05:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2026-03-29 09:00:00" ~ TRUE,
+    tag_idn == "55673" & date_time_pst == "2026-04-19 01:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-03-08 11:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-03-31 08:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-03-31 06:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-04-03 08:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-04-24 22:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-04-25 04:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-05-06 23:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-05-30 04:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-06-30 15:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-11-14 22:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2024-12-22 15:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2025-02-07 10:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2025-03-08 20:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2025-04-05 21:00:00" ~ TRUE,
+    tag_idn == "55674" & date_time_pst == "2025-04-29 02:00:00" ~ TRUE,    
+    tag_idn == "55674" & date_time_pst == "2025-05-05 05:00:00" ~ TRUE, 
+    tag_idn == "55674" & date_time_pst == "2025-05-25 04:00:00" ~ TRUE, 
+    tag_idn == "55674" & date_time_pst == "2025-07-05 15:00:00" ~ TRUE, 
+    tag_idn == "55674" & date_time_pst == "2025-12-07 16:00:00" ~ TRUE, 
+    tag_idn == "55674" & date_time_pst == "2026-05-17 18:00:00" ~ TRUE, 
+    tag_idn == "55674" & date_time_pst == "2026-06-07 04:00:00" ~ TRUE, 
+    tag_idn == "55675" & date_time_pst == "2024-04-28 01:00:00" ~ TRUE, 
+    tag_idn == "55675" & date_time_pst == "2024-05-26 01:00:00" ~ TRUE, 
+    tag_idn == "55675" & date_time_pst == "2024-11-03 16:00:00" ~ TRUE, 
+    tag_idn == "55675" & date_time_pst == "2025-01-19 00:00:00" ~ TRUE, 
+    tag_idn == "55675" & date_time_pst == "2025-04-18 20:01:00" ~ TRUE,
+    tag_idn == "55675" & date_time_pst == "2026-01-02 21:00:00" ~ TRUE,
+    tag_idn == "55675" & date_time_pst == "2026-05-31 16:00:00" ~ TRUE, 
+    tag_idn == "55676" & date_time_pst == "2024-05-08 06:00:00" ~ TRUE, 
+    tag_idn == "55676" & date_time_pst == "2024-05-26 16:00:00" ~ TRUE,     
+    tag_idn == "55676" & date_time_pst == "2024-05-30 01:00:00" ~ TRUE, 
+    tag_idn == "55676" & date_time_pst == "2024-06-18 01:00:00" ~ TRUE, 
+    tag_idn == "55676" & date_time_pst == "2024-06-23 15:00:00" ~ TRUE, 
+    tag_idn == "55676" & date_time_pst == "2024-07-21 20:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2024-07-28 00:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2024-08-24 21:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2025-01-05 02:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2025-02-12 00:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2025-02-26 07:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2025-07-06 04:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2025-07-16 13:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2025-07-30 17:00:00" ~ TRUE,  
+    tag_idn == "55676" & date_time_pst == "2025-12-07 10:00:00" ~ TRUE, 
+    tag_idn == "55676" & date_time_pst == "2025-12-18 13:00:00" ~ TRUE, 
+    tag_idn == "55676" & date_time_pst == "2026-01-02 15:00:00" ~ TRUE, 
+    tag_idn == "55676" & date_time_pst == "2026-05-19 07:00:00" ~ TRUE, 
+    tag_idn == "55678" & date_time_pst == "2024-08-04 06:00:00" ~ TRUE,
+    tag_idn == "55678" & date_time_pst == "2025-04-24 04:01:00" ~ TRUE,
+    tag_idn == "55678" & date_time_pst == "2025-05-19 01:00:00" ~ TRUE,
+    tag_idn == "55678" & date_time_pst == "2026-02-08 06:00:00" ~ TRUE,
+    tag_idn == "55679" & date_time_pst == "2024-04-05 02:00:00" ~ TRUE,
+    tag_idn == "55679" & date_time_pst == "2024-06-09 15:00:00" ~ TRUE,
+    tag_idn == "55679" & date_time_pst == "2025-02-09 02:00:00" ~ TRUE,
+    tag_idn == "55679" & date_time_pst == "2025-10-19 02:00:00" ~ TRUE,    
+    tag_idn == "55679" & date_time_pst == "2026-01-03 23:00:00" ~ TRUE,   
+    tag_idn == "55679" & date_time_pst == "2026-04-16 08:00:00" ~ TRUE,   
+    tag_idn == "55681" & date_time_pst == "2024-06-23 00:00:00" ~ TRUE,   
+    tag_idn == "55681" & date_time_pst == "2025-04-20 01:00:00" ~ TRUE,      
+    tag_idn == "55681" & date_time_pst == "2025-05-23 07:00:00" ~ TRUE,    
+    tag_idn == "55681" & date_time_pst == "2025-06-02 21:00:00" ~ TRUE,    
+    tag_idn == "55681" & date_time_pst == "2025-06-19 09:00:00" ~ TRUE, 
+    tag_idn == "55684" & date_time_pst == "2024-10-20 15:00:00" ~ TRUE, 
+    tag_idn == "55684" & date_time_pst == "2025-01-07 19:00:00" ~ TRUE, 
+    tag_idn == "55684" & date_time_pst == "2025-01-12 08:00:00" ~ TRUE,  
+    tag_idn == "55684" & date_time_pst == "2025-07-12 14:00:00" ~ TRUE,  
+    tag_idn == "55684" & date_time_pst == "2025-12-14 14:00:00" ~ TRUE,  
+    tag_idn == "55684" & date_time_pst == "2026-02-08 14:00:00" ~ TRUE,  
+    tag_idn == "55684" & date_time_pst == "2026-05-31 07:00:00" ~ TRUE,  
+    tag_idn == "55684" & date_time_pst == "2026-06-14 03:00:00" ~ TRUE,  
+    tag_idn == "55684" & date_time_pst == "2026-06-14 15:00:00" ~ TRUE,  
+    tag_idn == "55690" & date_time_pst == "2024-03-16 12:00:00" ~ TRUE,  
+    tag_idn == "55690" & date_time_pst == "2024-04-28 03:00:00" ~ TRUE,  
+    tag_idn == "55690" & date_time_pst == "2024-05-03 01:00:00" ~ TRUE,  
+    tag_idn == "55690" & date_time_pst == "2024-05-05 06:00:00" ~ TRUE,  
+    tag_idn == "55690" & date_time_pst == "2024-06-05 11:00:00" ~ TRUE,  
+    tag_idn == "55690" & date_time_pst == "2024-11-03 07:00:00" ~ TRUE,  
+    tag_idn == "55690" & date_time_pst == "2025-03-23 02:00:00" ~ TRUE, 
+    tag_idn == "55692" & date_time_pst == "2025-05-08 04:00:00" ~ TRUE, 
+    tag_idn == "55692" & date_time_pst == "2025-05-24 22:00:00" ~ TRUE, 
+    tag_idn == "55694" & date_time_pst == "2024-05-04 00:00:00" ~ TRUE,
+    tag_idn == "55694" & date_time_pst == "2024-05-05 00:00:00" ~ TRUE,  
+    tag_idn == "55694" & date_time_pst == "2024-05-05 01:00:00" ~ TRUE,
+    tag_idn == "556882" & date_time_pst == "2025-06-08 06:00:00" ~ TRUE,
+    tag_idn == "556882" & date_time_pst == "2026-03-08 03:00:00" ~ TRUE,
+    tag_idn == "556882" & date_time_pst == "2026-04-09 22:01:00" ~ TRUE,
+    tag_idn == "55698" & date_time_pst == "2025-05-02 00:00:00" ~ TRUE,
+    tag_idn == "55698" & date_time_pst == "2025-05-09 19:00:00" ~ TRUE,
+    tag_idn == "55699" & date_time_pst == "2024-06-09 15:00:00" ~ TRUE,
+    tag_idn == "55699" & date_time_pst == "2025-03-30 02:00:00" ~ TRUE,
+    tag_idn == "55699" & date_time_pst == "2025-07-24 02:00:00" ~ TRUE,
+    tag_idn == "55699" & date_time_pst == "2026-02-21 23:00:00" ~ TRUE,
+    
+    
+    .default = FALSE)
+    )
+    
+#aa <- traj_df |> 
+#  filter(tag_idn == "55670" & date_time_pst == ymd_hms("2024-03-08 04:00:00", tz = "PST"))
+
 #ttsf <- st_as_sf(traj_df, coords = c("Longitude", "Latitude"), crs = 4326)
 #write_sf(ttsf, fs::path("01_clean_data", "location_pointsTESST.gpkg"))
 
 traj_df <- traj_df |> 
-  filter(gps_spike == FALSE)
+  filter(gps_spike == FALSE) |> 
+  filter(gps_spike_manual == FALSE)
 
 
 # rerun the distance and speed calcs after removing errors and check for more outliers 
@@ -267,7 +446,7 @@ sf_pts <- st_as_sf(
 
 
 # get unique tags 
-uts <- unique(sf_pts$tag_idn)#[20:22]
+uts <- unique(sf_pts$tag_idn)[c(1,10)]
 
 # cycle through all sheep and calculate the movement metrics using adehabitat package
 
@@ -296,7 +475,7 @@ adehab_metrics <- purrr::map(uts, function(x){
                        units = c("hours"))
   
   
-  # 3 generate minimum convex polygon for 1 day, 2 days , 3 days (median and mean)
+  # 3 generate minimum convex polygon for 1 day, 3 days (median and mean)
   if(length(unique(sf_ptsu$date_pst))>3){
     
   # get date range for three day window 
@@ -308,7 +487,8 @@ adehab_metrics <- purrr::map(uts, function(x){
   
   dm <- dates[2:length(dates)-2]
   
-  # for each date 
+  
+  # for each three day window
   mcp_area <- purrr::map(dm, function(d){
     
      #print(d)
@@ -441,7 +621,7 @@ out <- all |>
          -Date, -Time.Zone, -time,-date_pst.x,
          -Northing, -Westing, -Animal_WLH, -Eartag,-Comments, -date_time, 
          -Recorder, -Capture_GPS_Zone_NAD_83., -lat_prior, -long_prior  , -time_prior , 
-         -cos_turn, -gps_spike, -check, -x, -y )
+         -cos_turn, -gps_spike,-gps_spike_manual, -check, -x, -y )
 
 
 out_sf <- st_as_sf(out, coords = c("X", "Y"), crs = 3005)
@@ -451,7 +631,7 @@ write.csv(out, fs::path("01_clean_data", "location_steps_all_20260703.csv")) # f
 write.csv(all, fs::path("01_clean_data", "location_steps_all_raw_20260703.csv")) # all columns 
 
 # write out subset cols as sf object 
-st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260703.gpkg"), append = FALSE)
+st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260703_TEST.gpkg"), append = FALSE)
 
 
 
