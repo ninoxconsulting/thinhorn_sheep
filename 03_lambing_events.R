@@ -23,11 +23,13 @@ library(ggplot2)
 # read in the summary data 
 
 clean_dir <- fs::path("01_clean_data")
-out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260706")
+#out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260706")
+out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260721")
 
 #allpts <- read.csv(fs::path("01_clean_data", "location_steps_all_raw_20260703.csv"))  # issues with date field and csv
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260703_TEST.gpkg")) |> 
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg")) |> 
   st_drop_geometry()
+
 
 # # export data for App
 # exportcsv <- allpts |> select(tag_idn, date_pst.y, date_time_pst, Latitude, Longitude) |> 
@@ -52,6 +54,10 @@ pts <- allpts |>
   mutate(date_pst = as_date(date_time_pst)) |> 
   select(-date_time_pst1)
 
+# FIX: capture the timezone once, from data that actually exists at this
+# point in the script -- used later when building highlight_ranges instead
+# of the undefined ewi_jyear.
+tz_use <- tz(pts$date_time_pst)
 
 #### Sub set to Ewes 
 # get list of ewes
@@ -67,16 +73,18 @@ Julianday <- function(x) {
   as.numeric(format(x, "%j"))
 }
 
-# calculate the julian date for May 1st and June 30th
+
+# calculate the julian date for May 1st and July 31st as template for all years 
 jstart <- Julianday(ymd("2024-05-01"))
-jend <- Julianday(ymd("2024-06-30"))
+jend <- Julianday(ymd("2024-07-31"))
 #jstart <- Julianday(ymd("2025-05-01"))
 #end <- Julianday(ymd("2025-06-30"))
 
 
-#120 - 183
+#120 - 212
 
 be <- ewes |> 
+  mutate(Julianday = Julianday(date_time_pst)) |> 
   filter(Julianday >= jstart & Julianday <= jend) |> 
   group_by(tag_idn, date_pst) |>
   mutate(speed_ave_day = mean(speed_ave, na.rm = TRUE),
@@ -88,16 +96,106 @@ be <- ewes |>
 beu <- unique(be$tag_idn)
 
 
+# add the potential lambing events based on prior review 
+
+# ------------------------------------------------------------
+# 1. Lookup table of grey-box date ranges: one row per ewi x year
+#    Replace this with your actual date ranges (e.g. read from CSV)
+# ------------------------------------------------------------
+ref_year <- 2000
+
+# FIX: column renamed year_pst -> year, so it matches the faceting variable
+# used by facet_grid(year ~ .) later on -- otherwise ggplot doesn't know
+# which facet panel each box belongs to and draws it on every panel.
+highlight_ranges <- tibble::tribble(
+  ~tag_idn,    ~year, ~box_start,     ~box_end,
+  "55670",  2025,  "2025-05-27",   "2025-05-30",
+  "55670",  2026,  "2026-05-23",   "2026-05-26",
+  
+  "55672",  2024,  "2024-05-20",   "2024-05-27",
+  #"55672",  2025,  "2025-05-27",   "2025-05-30",
+  "55672",  2026,  "2026-05-19",   "2026-05-22",
+  
+  "55673",  2024,  "2024-05-18",   "2024-05-21",
+  "55673",  2025,  "2025-05-16",   "2025-05-25",
+  "55673",  2026,  "2026-05-21",   "2026-05-24",
+  
+  #"55674",  2024,  "2024-05-18",   "2024-05-21",
+  "55674",  2025,  "2025-06-07",   "2025-06-09",
+  "55674",  2026,  "2026-06-08",   "2026-06-12",
+  
+  "55676",  2025,  "2025-06-13",   "2025-06-16",
+ 
+  "55678",  2024,  "2024-05-16",   "2025-05-20", 
+  "55678",  2025,  "2025-05-15",   "2025-05-18",
+ # "55678",  2026,  "2026-06-13",   "2025-06-16",
+  
+  "55679",  2024,  "2024-05-20",   "2024-05-21",
+  "55679",  2025,  "2025-05-25",   "2025-05-27",
+  #"55679",  2026,  "2026-05-21",   "2026-05-24",
+ 
+  "55681",  2024,  "2024-05-28",   "2024-05-29",
+  "55681",  2025,  "2025-06-05",   "2025-06-09",
+  
+ "55684",  2024,  "2024-05-19",   "2024-05-22",
+ "55684",  2025,  "2025-06-05",   "2025-06-09",
+ #"55681",  2026,  "2026-05-21",   "2026-05-24",
+ 
+ "55690",  2025,  "2025-05-10",   "2025-05-12",
+ 
+ "55692",  2024,  "2024-05-14",   "2024-05-19",
+ "55692",  2025,  "2025-06-06",   "2025-06-10",
+ 
+ "55694",  2024,  "2024-05-19",   "2024-05-22",
+ "55694",  2025,  "2025-06-05",   "2025-06-09",
+ "55694",  2026,  "2026-05-21",   "2026-05-24",
+
+ "55698",  2024,  "2024-05-19",   "2024-05-22",
+ "55698",  2025,  "2025-06-05",   "2025-06-09",
+ "55698",  2026,  "2026-05-21",   "2026-05-24",
+ 
+ "55699",  2024,  "2024-05-13",   "2024-05-22",
+ "55699",  2025,  "2025-05-25",   "2025-06-02",
+# "55699",  2026,  "2026-05-21",   "2026-05-24", # not sure
+ "55700",  2024,  "2024-05-20",   "2024-05-27",
+ "55700",  2025,  "2025-05-30",   "2025-06-03",
+ "55701",  2025,  "2025-05-10",   "2025-05-13",
+ "55702",  2024,  "2024-05-22",   "2024-05-27",
+ "55702",  2025,  "2025-05-20",   "2025-05-26",
+ #"55702",  2026,  "2026-05-21",   "2026-05-24", # not sure
+ "55707",  2024,  "2024-06-15",   "2024-06-20",
+ "55707",  2025,  "2025-06-15",   "2025-06-19",
+ #"55707",  2026,  "2026-05-21",   "2026-05-24", # not sure 
+ "556802",  2024,  "2024-05-13",   "2024-05-21",
+ "556802",  2025,  "2025-05-17",   "2025-05-25",
+ "556882",  2025,  "2025-05-11",   "2025-05-16",
+ "556882",  2026,  "2026-05-18",   "2026-05-24",
+ 
+) %>%
+  mutate(
+    tag_idn   = as.numeric(tag_idn),  # FIX: match type with be$tag_idn (numeric)
+    # FIX: tz_use (defined above from real data) replaces the undefined
+    # ewi_jyear$plot_date reference, which crashed the script immediately.
+    box_start = update(as.POSIXct(box_start, tz = tz_use), year = ref_year),
+    box_end   = update(as.POSIXct(box_end,   tz = tz_use), year = ref_year)
+  )
+
+
+
+
 # for each ewe and each year plot the step length and mcp over three years. 
 for(ii in beu){
   
- ii <-beu[1]
+  ii <-beu[1]
   
   print(ii)
   
   ewi <- be |> 
     filter(tag_idn == ii) |> 
     arrange(date_time_pst)
+  
+  highlight_ii <- highlight_ranges |>  filter(tag_idn == ii)
+  
   
   # write out gps data to review 
   out_sf <- st_as_sf(ewi, coords = c("Longitude", "Latitude"), crs = 4326)
@@ -106,8 +204,6 @@ for(ii in beu){
   # write out subset cols as sf object 
   st_write(out_sf, fs::path(out_dir, paste0("location_lamb_", ii, ".gpkg")), append = FALSE)
   
-#}
-  
   # GET INFO FOR HEADING
   age_annuali_capture <- unique(ewi$Age_annuli)
   ewi_years = unique(ewi$year_pst)
@@ -115,8 +211,15 @@ for(ii in beu){
   preg_2024 <- unique(ewi$pregnant_2024)
   preg_2025 <- unique(ewi$pregnant_2025)
   capture_preg_status = ifelse(preg_2024 %in% c("", "na"), preg_2025, preg_2024)
-
-  # LOOP THROUGH EACH YEAR FOR EACH EWE
+  
+  # ------------------------------------------------------------
+  # PLOT 1: one plot PER YEAR
+  # ------------------------------------------------------------
+  
+  
+  # ------------------------------------------------------------
+  # PLOT 1: one plot PER YEAR
+  # ------------------------------------------------------------
   purrr::map(ewi_years, function(x){
     
     print(x)
@@ -126,7 +229,7 @@ for(ii in beu){
     ewi_year <- ewi |> 
       filter(year_pst == x) |> 
       select(tag_idn, date_time_pst, speed_ave, mcp_area_3d) 
-   
+    
     median_step_length = median(ewi_year$speed_ave, na.rm = TRUE)
     mean_step_length = mean(ewi_year$speed_ave, na.rm = TRUE)
     
@@ -136,41 +239,68 @@ for(ii in beu){
       mutate(low_speed_median = ifelse(speed_ave < (0.5*median_step_length), 1, 0)) |> 
       mutate(low_speed_mean = ifelse(speed_ave < (0.5*mean_step_length), 1, 0))
     
-  
+    
     # How many sequences have at least 36 consecutive observations with value equal or greater than mean or median step length
-      median_length = trle_cond(x = c(ewi_year$low_speed_median), a_op = "gte", a = 36, b_op = "gte", b = 1)
-      mean_length = trle_cond(x = c(ewi_year$low_speed_mean), a_op = "gte", a = 36, b_op = "gte", b = 1)
-       
+    median_length = trle_cond(x = c(ewi_year$low_speed_median), a_op = "gte", a = 36, b_op = "gte", b = 1)
+    mean_length = trle_cond(x = c(ewi_year$low_speed_mean), a_op = "gte", a = 36, b_op = "gte", b = 1)
+    
     # conversion for scales from movement rate to mcp area
     mcp_area_3d = 0.01
-  
+    
     sheep_move_year <- ggplot(ewi_year, aes(x = date_time_pst)) +
       geom_hline(yintercept=median_step_length, linetype="dashed", color = "red")+
       geom_line(aes(y =speed_ave), colour= "darkgrey") +
-      ##geom_point(aes(y =speed_ave), size = 0.2,colour= "darkgrey")+
       geom_line(aes(y = as.numeric(mcp_area_3d)), size = 0.2,colour= "blue", linetype = "longdash")+
       scale_y_continuous("movement rate (m/h)", sec.axis = sec_axis(~.*mcp_area_3d, name = "mcp three day ave")) +
-      
       labs(title = paste0("Tag ID:", ii,  ",  Capture: ", date_collared,",  Capture Age annuali: ", age_annuali_capture, ", Preg on capture: " ,capture_preg_status, ", Plot Year: ", x),
            x = "Date", y = "movement rate (m/h)")+ 
       scale_x_datetime(date_breaks = "1 week", date_labels = "%b %d")+
-      ## add top left annotation for number of consecutive days below 50% of median and mean step length
-      ##geom_text("text", x = median_length )
-      #annotate(geom = 'text', label = paste0("50% below median > 36hrs =", median_length), x = min(ewi_year$date_time_pst), y = 1600, hjust = 0, vjust = 1)+
       annotate(geom = 'text', label = paste0("50% below mean > 36hrs =", mean_length), x = min(ewi_year$date_time_pst), y = 1600, hjust = 0, vjust = 1)+ 
-      #ylim(0,1800)
       coord_cartesian(ylim = c(0,1600))
-    
-    
-    sheep_move_year
     
     print(sheep_move_year)
     ggsave(filename = fs::path(out_dir, paste0("ewe_",ii, "_", x, "v2TEST.png")), plot = sheep_move_year, width = 11, height = 6)
     
   })
- 
+  
+  
+  # ------------------------------------------------------------
+  # PLOT 2: one COMMON plot, all years overlaid as facet rows on a
+  # shared (reference-year) date axis
+  # ------------------------------------------------------------
+  ewi_jyear <- ewi %>%
+    mutate(
+      year      = year(date_time_pst),
+      plot_date = update(date_time_pst, year = ref_year)   # FIX: use the same ref_year (2000) as highlight_ranges
+    )
+  
+  sheep_move_julian <- ggplot(ewi_jyear, aes(x = plot_date)) +
+    geom_rect(data = highlight_ii,
+              aes(xmin = box_start, xmax = box_end, ymin = -Inf, ymax = Inf),
+              inherit.aes = FALSE, fill = "darkorange", alpha = 0.3) +
+    geom_line(aes(y = speed_ave), colour = "darkgrey") +
+    labs(title = paste0("Tag ID:", ii, ",  Capture: ", date_collared,
+                        ",  Capture Age annuali: ", age_annuali_capture,
+                        ", Preg on capture: ", capture_preg_status),
+         x = "Date", y = "movement rate (m/h)")+
+    scale_x_datetime(date_breaks = "1 week", date_labels = "%b %d") +
+    coord_cartesian(
+      xlim = c(min(ewi_jyear$plot_date),
+               as.POSIXct(paste0(ref_year, "-07-31 23:59:59"), tz = tz_use)),
+      ylim = c(0, 1600))+
+    facet_grid(year ~ .) +
+    theme(strip.text = element_text(face = "bold", hjust = 0))
+  
+  print(sheep_move_julian)
+  
+  ggsave(filename = fs::path(out_dir, paste0("ewe_", ii, "_all_years_common.png")),
+         plot = sheep_move_julian, width = 11, height = 8)
   
 }
+
+
+
+
 
 ### TO DO: EWES
 # review the plots to determine potential lambing events. 
@@ -561,5 +691,4 @@ kde50_plot1
 # # counts seemed to drop at the end before tag died. 
 # 
 # 
-
 
