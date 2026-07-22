@@ -25,11 +25,13 @@ ref <- ref |>
 
 # read in location data 
 #loc_dir <- fs::path(data_dir, "20260325")
-loc_dir <- fs::path(data_dir, "20260624")
+#loc_dir <- fs::path(data_dir, "20260624")
+loc_dir <- fs::path(data_dir, "20260721")
 
-list.files(loc_dir)
+#list.files(loc_dir)
 #file_i <- fs::path(loc_dir, "Cumulative_D_13197_202623181141.txt")
-file_i <- fs::path(loc_dir,"Cumulative_D_13197_202653101756.txt")
+#file_i <- fs::path(loc_dir,"Cumulative_D_13197_202653101756.txt")
+file_i <- fs::path(loc_dir,"Cumulative_D_13197_20266214580.txt")
 
 tfile <- read.table(file_i, header = T, sep = ",")|> 
   mutate(tag_id = as.character(CollarSerialNumber )) |>
@@ -446,7 +448,7 @@ sf_pts <- st_as_sf(
 
 
 # get unique tags 
-uts <- unique(sf_pts$tag_idn)[c(1,10)]
+uts <- unique(sf_pts$tag_idn)#[c(1,10)]
 
 # cycle through all sheep and calculate the movement metrics using adehabitat package
 
@@ -627,11 +629,11 @@ out <- all |>
 out_sf <- st_as_sf(out, coords = c("X", "Y"), crs = 3005)
 
 # write this out 
-write.csv(out, fs::path("01_clean_data", "location_steps_all_20260703.csv")) # filtered down cols
-write.csv(all, fs::path("01_clean_data", "location_steps_all_raw_20260703.csv")) # all columns 
+write.csv(out, fs::path("01_clean_data", "location_steps_all_20260721.csv")) # filtered down cols
+write.csv(all, fs::path("01_clean_data", "location_steps_all_raw_20260721.csv")) # all columns 
 
 # write out subset cols as sf object 
-st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260703_TEST.gpkg"), append = FALSE)
+st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"), append = FALSE)
 
 
 
