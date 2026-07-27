@@ -37,6 +37,7 @@ tfile <- read.table(file_i, header = T, sep = ",")|>
   mutate(tag_id = as.character(CollarSerialNumber )) |>
   mutate(Date = ymd(Date)) 
 
+length(tfile$CollarSerialNumber)
 
 # 1) update tag ids for re-collared individuals 
 # need to split out the tag_ids to reflect the -1 and -2 versions 
