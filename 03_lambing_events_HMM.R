@@ -1,4 +1,8 @@
 # HMM example 
+# This uses step length and turning angle to classify movement into two states. 
+# To help identify lambing events. 
+# currently a back up for origianl step length methods. 
+
 
 ## LOW PRIORITY - jULY 2026
 
