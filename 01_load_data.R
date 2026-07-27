@@ -44,85 +44,84 @@ write.csv(ref, fs::path("01_clean_data", "reference.csv") )
 
 
 
-############################################
-## Summary of tags 
-
-## manually edited this file
-
-ref <- read.csv(fs::path("01_clean_data", "reference_edit.csv"))
-ref <- ref |> 
-  mutate(tag_idn = gsub("-", "", tag_id))
-  
-  
-## summary of tags 
-
-# by sex 
-sex_sum <- ref |> 
-  group_by(sex) |> 
-  count()
-
-sex_sum
-
-
-# by age class and sex
-sex_age_sum <- ref |> 
-  group_by(sex, sheep_class) |> 
-  count()
-
-sex_age_sum
-
-
-# by age annualli and sex
-sex_aage_sum <- ref |> 
-  group_by(sex, Age_annuli) |> 
-  count()
-
-sex_aage_sum
-
-
-
-# duration of the tags 
-dur <- ref |> 
-  mutate(end_date_estimate = case_when(
-    is.na(End_Date) ~ "2026-04-07",
-    .default = End_Date
-  )) |> 
-  mutate(end_date_estimate = ymd(end_date_estimate)) |> 
-  mutate(capture_date = ymd(capture_date)) |> 
-  mutate(duration = end_date_estimate - capture_date)
-
-
-
-dur_plot <- ggplot(dur, aes(y=factor(tag_idn), color = sex)) +  
-  geom_segment(aes(x=capture_date, xend=end_date_estimate, y=factor(tag_idn), yend=factor(tag_idn)), size=1)+  
-  xlab("Date") + ylab("Tag") +
-  scale_color_viridis_d(begin = 0.2, end = 0.8)+
-  facet_wrap(~ sheep_class) #+
-# xlim("2022-01-01", "2026-07-04")
-
-
-dur_plot  
-
-dur_hist <- ggplot(dur, aes(x= duration))+  
-  geom_histogram() + #fill="white", position="dodge") +  
-  scale_color_viridis_d()+
-  #facet_wrap(~year)+  
-  xlab("duration (days)")   
-
-dur_hist  
-
-
-
-#################
-
-## get base data 
-
-aoi = st_read(fs::path(data_dir, "aoi.gpkg"))
- 
-cded_raw <- bcmaps::cded(aoi)
-  
-cded <- terra::rast(cded_raw)
-  
+# ############################################
+# ## summary of tags - note this is just used to review data 
+# ## Final summary plot in 06_report_figures plot. 
+# 
+# 
+# ## manually edited this file
+# 
+# ref <- read.csv(fs::path("01_clean_data", "reference_edit.csv"))
+# ref <- ref |> 
+#   mutate(tag_idn = gsub("-", "", tag_id))
+# 
+# # by sex 
+# sex_sum <- ref |> 
+#   group_by(sex) |> 
+#   count()
+# 
+# sex_sum
+# 
+# 
+# # by age class and sex
+# sex_age_sum <- ref |> 
+#   group_by(sex, sheep_class) |> 
+#   count()
+# 
+# sex_age_sum
+# 
+# 
+# # by age annualli and sex
+# sex_aage_sum <- ref |> 
+#   group_by(sex, Age_annuli, sheep_class) |> 
+#   count()
+# 
+# sex_aage_sum
+# 
+# 
+# 
+# # duration of the tags 
+# dur <- ref |> 
+#   mutate(end_date_estimate = case_when(
+#     is.na(End_Date) ~ "2026-04-07",
+#     .default = End_Date
+#   )) |> 
+#   mutate(end_date_estimate = ymd(end_date_estimate)) |> 
+#   mutate(capture_date = ymd(capture_date)) |> 
+#   mutate(duration = end_date_estimate - capture_date)
+# 
+# 
+# 
+# dur_plot <- ggplot(dur, aes(y=factor(tag_idn), color = sex)) +  
+#   geom_segment(aes(x=capture_date, xend=end_date_estimate, y=factor(tag_idn), yend=factor(tag_idn)), size=1)+  
+#   xlab("Date") + ylab("Tag") +
+#   scale_color_viridis_d(begin = 0.2, end = 0.8)+
+#   facet_wrap(~ sheep_class) #+
+# # xlim("2022-01-01", "2026-07-04")
+# 
+# 
+# dur_plot  
+# 
+# dur_hist <- ggplot(dur, aes(x= duration))+  
+#   geom_histogram() + #fill="white", position="dodge") +  
+#   scale_color_viridis_d()+
+#   #facet_wrap(~year)+  
+#   xlab("duration (days)")   
+# 
+# dur_hist  
+# 
+# 
+# 
+# #################
+# 
+# ## get base data 
+# 
+# aoi = st_read(fs::path(data_dir, "aoi.gpkg"))
+#  
+# cded_raw <- bcmaps::cded(aoi)
+#   
+# cded <- terra::rast(cded_raw)
+#   
 
 
 

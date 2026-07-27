@@ -1,12 +1,13 @@
 ## identify ewes and potential partition dates and locations
 ## Lambing dates May 1 - June 15th (as per Enns et al + refernces)
 # For ewes, estimate parturition timing and duration based on changes in 
-# movement rate, proximity to herd, 
+# movement rate step length , proximity to herd, 
 # and within expected lambing season (1 May to June 30th). 
 
-#install.packages("nseq")
-#install.packages("GGally")
-#install.packages("corrplot")
+# calaulate step lengths
+# identify and plot potential lambing based on step length figure 
+# output a basic figure for shiny app. 
+
 
 library(corrplot)
 library(GGally)
@@ -26,21 +27,21 @@ clean_dir <- fs::path("01_clean_data")
 #out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260706")
 out_dir <- fs::path("02_draft_outputs/01_lamb_figures_20260721")
 
-#allpts <- read.csv(fs::path("01_clean_data", "location_steps_all_raw_20260703.csv"))  # issues with date field and csv
+# use .gpkg as csv drops time stamp
 allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg")) |> 
   st_drop_geometry()
 
-
-# # export data for App
-# exportcsv <- allpts |> select(tag_idn, date_pst.y, date_time_pst, Latitude, Longitude) |> 
-#   mutate(date_time_pst1 = format(as.POSIXct(date_time_pst), "%Y-%m-%d %H:%M:%S")) |> 
-#   mutate(date_time_pst = ymd_hms(date_time_pst1)) |> 
-#   rename("id"= tag_idn, 
+# 
+# # # export data for App
+# exportcsv <- allpts |> select(tag_idn, date_pst.y, date_time_pst, Latitude, Longitude, Age_annuli, sheep_class, sex ) |>
+#   mutate(date_time_pst1 = format(as.POSIXct(date_time_pst), "%Y-%m-%d %H:%M:%S")) |>
+#   mutate(date_time_pst = ymd_hms(date_time_pst1)) |>
+#   rename("id"= tag_idn,
 #          "lat" = Latitude,
 #          "lon" = Longitude,
-#          "datetime"=  date_time_pst, 
-#          "date" = date_pst.y) |> 
-#   select(id, lat, lon, datetime, date_time_pst1, date) #|> 
+#          "datetime"=  date_time_pst,
+#          "date" = date_pst.y) |>
+#   select(id, lat, lon, datetime, date_time_pst1, date, Age_annuli, sheep_class, sex) #|>
 #   #filter(!is.na(date))
 # 
 # st_write(exportcsv, path("01_clean_data", "sheep_data.csv"))
@@ -112,64 +113,64 @@ highlight_ranges <- tibble::tribble(
   "55670",  2025,  "2025-05-27",   "2025-05-30",
   "55670",  2026,  "2026-05-23",   "2026-05-26",
   
-  "55672",  2024,  "2024-05-20",   "2024-05-27",
-  #"55672",  2025,  "2025-05-27",   "2025-05-30",
-  "55672",  2026,  "2026-05-19",   "2026-05-22",
+  "55672",  2024,  "2024-05-22",   "2024-05-27",
+  "55672",  2025,  "2025-05-20",   "2025-05-22",
+  "55672",  2026,  "2026-05-20",   "2026-05-22",
   
-  "55673",  2024,  "2024-05-18",   "2024-05-21",
-  "55673",  2025,  "2025-05-16",   "2025-05-25",
+  "55673",  2024,  "2024-05-18",   "2024-05-26",
+  "55673",  2025,  "2025-05-17",   "2025-05-25",
   "55673",  2026,  "2026-05-21",   "2026-05-24",
-  
-  #"55674",  2024,  "2024-05-18",   "2024-05-21",
-  "55674",  2025,  "2025-06-07",   "2025-06-09",
-  "55674",  2026,  "2026-06-08",   "2026-06-12",
-  
-  "55676",  2025,  "2025-06-13",   "2025-06-16",
+
+  "55674",  2025,  "2025-06-06",   "2025-06-09",
+  "55674",  2026,  "2026-06-02",   "2026-06-12",
+
+  "55676",  2024,  "2024-06-23",   "2025-06-26",
+  "55676",  2025,  "2025-06-27",   "2025-07-01",
  
-  "55678",  2024,  "2024-05-16",   "2025-05-20", 
-  "55678",  2025,  "2025-05-15",   "2025-05-18",
+  "55678",  2024,  "2024-05-15",   "2025-05-20", 
+  "55678",  2025,  "2025-05-15",   "2025-05-19",
  # "55678",  2026,  "2026-06-13",   "2025-06-16",
   
-  "55679",  2024,  "2024-05-20",   "2024-05-21",
-  "55679",  2025,  "2025-05-25",   "2025-05-27",
+  #"55679",  2024,  "2024-05-20",   "2024-05-21",
+  "55679",  2025,  "2025-05-25",   "2025-05-28",
   #"55679",  2026,  "2026-05-21",   "2026-05-24",
  
   "55681",  2024,  "2024-05-28",   "2024-05-29",
-  "55681",  2025,  "2025-06-05",   "2025-06-09",
+  "55681",  2025,  "2025-06-06",   "2025-06-08",
   
- "55684",  2024,  "2024-05-19",   "2024-05-22",
- "55684",  2025,  "2025-06-05",   "2025-06-09",
- #"55681",  2026,  "2026-05-21",   "2026-05-24",
+ "55684",  2024,  "2024-05-18",   "2024-05-21",
+ "55684",  2025,  "2025-05-30",   "2025-06-04",
+ "55684",  2026,  "2026-05-24",   "2026-05-29",
  
  "55690",  2025,  "2025-05-10",   "2025-05-12",
+ #"55692",  2024,  "2024-05-14",   "2024-05-19",
+ "55692",  2025,  "2025-06-05",   "2025-06-10",
  
- "55692",  2024,  "2024-05-14",   "2024-05-19",
- "55692",  2025,  "2025-06-06",   "2025-06-10",
+ #"55694",  2024,  "2024-05-21",   "2024-05-24",
+ #"55694",  2025,  "2025-06-05",   "2025-06-09",
+ "55694",  2026,  "2026-05-11",   "2026-05-17",
  
- "55694",  2024,  "2024-05-19",   "2024-05-22",
- "55694",  2025,  "2025-06-05",   "2025-06-09",
- "55694",  2026,  "2026-05-21",   "2026-05-24",
-
- "55698",  2024,  "2024-05-19",   "2024-05-22",
- "55698",  2025,  "2025-06-05",   "2025-06-09",
- "55698",  2026,  "2026-05-21",   "2026-05-24",
+ "55698",  2024,  "2024-05-20",   "2024-05-24",
+ "55698",  2025,  "2025-05-10",   "2025-05-18",
+ #"55698",  2026,  "2026-05-21",   "2026-05-24",
  
- "55699",  2024,  "2024-05-13",   "2024-05-22",
- "55699",  2025,  "2025-05-25",   "2025-06-02",
+ "55699",  2024,  "2024-05-16",   "2024-05-22",
+ "55699",  2025,  "2025-05-24",   "2025-05-28",
 # "55699",  2026,  "2026-05-21",   "2026-05-24", # not sure
- "55700",  2024,  "2024-05-20",   "2024-05-27",
+ "55700",  2024,  "2024-05-20",   "2024-05-23",
  "55700",  2025,  "2025-05-30",   "2025-06-03",
- "55701",  2025,  "2025-05-10",   "2025-05-13",
+ "55701",  2025,  "2025-05-09",   "2025-05-13",
  "55702",  2024,  "2024-05-22",   "2024-05-27",
- "55702",  2025,  "2025-05-20",   "2025-05-26",
- #"55702",  2026,  "2026-05-21",   "2026-05-24", # not sure
- "55707",  2024,  "2024-06-15",   "2024-06-20",
- "55707",  2025,  "2025-06-15",   "2025-06-19",
+ "55702",  2025,  "2025-05-20",   "2025-05-25",
+ "55702",  2026,  "2026-05-22",   "2026-05-28", # not sure
+ 
+"55707",  2024,  "2024-06-14",   "2024-06-16",
+ "55707",  2025,  "2025-06-15",   "2025-06-18",
  #"55707",  2026,  "2026-05-21",   "2026-05-24", # not sure 
  "556802",  2024,  "2024-05-13",   "2024-05-21",
- "556802",  2025,  "2025-05-17",   "2025-05-25",
+ "556802",  2025,  "2025-05-16",   "2025-05-25",
  "556882",  2025,  "2025-05-11",   "2025-05-16",
- "556882",  2026,  "2026-05-18",   "2026-05-24",
+ "556882",  2026,  "2026-05-18",   "2026-05-22"
  
 ) %>%
   mutate(
@@ -186,7 +187,7 @@ highlight_ranges <- tibble::tribble(
 # for each ewe and each year plot the step length and mcp over three years. 
 for(ii in beu){
   
-  ii <-beu[1]
+ # ii <-beu[2]
   
   print(ii)
   
@@ -211,11 +212,6 @@ for(ii in beu){
   preg_2024 <- unique(ewi$pregnant_2024)
   preg_2025 <- unique(ewi$pregnant_2025)
   capture_preg_status = ifelse(preg_2024 %in% c("", "na"), preg_2025, preg_2024)
-  
-  # ------------------------------------------------------------
-  # PLOT 1: one plot PER YEAR
-  # ------------------------------------------------------------
-  
   
   # ------------------------------------------------------------
   # PLOT 1: one plot PER YEAR
@@ -259,7 +255,7 @@ for(ii in beu){
       coord_cartesian(ylim = c(0,1600))
     
     print(sheep_move_year)
-    ggsave(filename = fs::path(out_dir, paste0("ewe_",ii, "_", x, "v2TEST.png")), plot = sheep_move_year, width = 11, height = 6)
+    ggsave(filename = fs::path(out_dir, paste0("ewe_",ii, "_", x, ".png")), plot = sheep_move_year, width = 12, height = 6)
     
   })
   
@@ -294,10 +290,9 @@ for(ii in beu){
   print(sheep_move_julian)
   
   ggsave(filename = fs::path(out_dir, paste0("ewe_", ii, "_all_years_common.png")),
-         plot = sheep_move_julian, width = 11, height = 8)
+         plot = sheep_move_julian, width = 12, height = 8)
   
 }
-
 
 
 
@@ -310,8 +305,18 @@ for(ii in beu){
 # compare multiple tags to see which tags are a family groups
 #	Plot multiple years on same axis 
 
+
 ## FOR ALL: 
 # generate KDE for entire range per year and also for season (lambing or rutting)
+
+
+
+
+
+
+
+
+
 
 
 
