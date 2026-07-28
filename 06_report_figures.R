@@ -38,9 +38,21 @@ allpts <- cbind(allpts, st_coordinates(allpts))
 
 # generate a key to be used in plots below
 id_key <- allpts |> 
-  select(tag_idn, sex, Age_annuli, sheep_class) |>
+  select(tag_idn, sex,Age_annuli, sheep_class) |>
   st_drop_geometry() |> 
   unique()  
+
+
+age_lookup <- allpts |>
+  select(tag_idn, year_pst, Age_annuli) |>
+  mutate(tag_idn = as.character(tag_idn)) |> 
+  st_drop_geometry() |> unique() |> 
+  group_by(tag_idn) |> 
+  mutate(cap_year= min(year_pst)) |> 
+  rowwise() |> 
+  mutate(Age_annuli_est = Age_annuli + (year_pst - cap_year)) 
+
+
 
 
 sheep_data <- allpts |> 
@@ -361,7 +373,7 @@ library(dplyr)
 library(ggplot2)
 
 # by yr: 
-st_write(all_poly, path("02_draft_outputs", "sheep_yr_polygons_bbmm30.gpkg"))
+#st_write(all_poly, path("02_draft_outputs", "sheep_yr_polygons_bbmm30.gpkg"))
 
 # by yr and month 
 all_poly <- st_read(path("02_draft_outputs", "sheep_month_yr_polygons_bbmm30.gpkg"))
@@ -426,388 +438,502 @@ p1 <- ggplot(poly_df, aes(x = month, y = area)) +
   facet_wrap(~sex, labeller = label_both) +
   labs(x = NULL, y = "area (ha)") +
   theme(legend.position = "none")   # drop if you want the id colour legend
-
+p1
 
 
 ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","UD_bbmm_by_month.png"), 
+       p1, width = 10, height = 7, dpi = 300)
+
+
+
+
+
+
+##########################################################################
+## compare the annual, summer and winter areas
+## summary of areas for each of the polygons generated above
+# generate a table with the area of each polygon for each sex and age class for each of the time periods (year, winter, summer)
+
+alyr <- st_read(path("02_draft_outputs", "sheep_yr_polygons_bbmm30.gpkg")) |> mutate(type = "annual")
+sum <- st_read(path("02_draft_outputs", "sheep_summer_yr_polygons_bbmm30.gpkg")) |> mutate(type = "summer") |> rename("year" = year_pst)
+win <-  st_read(path("02_draft_outputs", "sheep_winter_yr_polygons_bbmm30.gpkg"))|> mutate(type = "winter")|> rename("year" = winter_year)
+
+uds <- rbind(alyr, sum, win) |> 
+  left_join(id_key, by = c("id" = "tag_idn")) |> 
+  st_drop_geometry() 
+
+# update the age so each year the age is updated based on the year of capture and the year of the polygon.ueat
+age_lookup1 <- age_lookup |> 
+  select( -Age_annuli, -cap_year) |> #cap_year, -sex) |> 
+  rename("year"= year_pst)
+
+uds <- left_join(uds, age_lookup1, by = c("id" = "tag_idn", "year" = "year"))
+
+poly_df_95 <- uds |> filter(th == 95) 
+
+## Tables  
+uds_sum <- poly_df_95 |>
+  group_by( type, sex) |>
+  summarise(count = n(),
+            median_area = median(area),
+            mean_area = mean(area),
+            min_area = min(area),
+            max_area = max(area))
+# 
+# 
+# uds_sum <- uds |> 
+#   filter(th == 95) |>
+#   group_by( type, sex, sheep_class) |> 
+#   summarise(count = n(), 
+#             median_area = median(area),
+#             mean_area = mean(area),
+#             min_area = min(area),
+#             max_area = max(area))
+# 
+
+
+
+# ---- 2. SUMMARY TABLE: area by month x th (pooled across id and year) ------
+type_summary <- uds |>
+  group_by(type, sex, th, Age_annuli_est, sheep_class) |>
+  summarise(
+    n      = n(),
+    mean   = mean(area, na.rm = TRUE),
+    median = median(area, na.rm = TRUE),
+    sd     = sd(area, na.rm = TRUE),
+    se     = sd / sqrt(n),
+    .groups = "drop"
+  )
+
+type_summary
+
+poly_df_95 <- uds |> filter(th == 95) 
+
+
+# ============================================================================
+# 3. PLOTS with estimated age 
+# ============================================================================
+
+# ---- 3a. boxplot: every id's area by month, one panel per isopleth ---------
+p1 <- ggplot(uds, aes(x = type, y = area)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6) +
+  geom_jitter(aes(colour = sex), width = 0.15, alpha = 0.4, size = 1.5) +
+  #geom_jitter(colour = "darkblue", width = 0.15, alpha = 0.2, size = 1.5) +
+  facet_wrap(~Age_annuli_est, labeller = label_both) +
+  #labs(x = type, y = "area (ha)") +
+  theme()#legend.position = "none")   # drop if you want the id colour legend
+
+p1
+
+ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","annual_sum_win_area_sheep_age_est.png"), 
        p1, width = 10, height = 9, dpi = 300)
 
 
 
+#########################################
+
+## how to determine the groups 
+
+## Females - based on winter grouping 
+
+overlap_tbl <- read.csv(fs::path("02_draft_outputs", "sheep_winter_yr_overlap_pc.csv")) |> 
+  select(-X.1, -X)
+
+id_key1 <- id_key |> rename("id_1" = tag_idn) |> select(id_1, sex) |> 
+  mutate(id_1 = as.integer(id_1))
+
+overlap_tbl<- left_join(overlap_tbl, id_key1)
+
+# select 95% for winter 
+
+ot <- overlap_tbl |> 
+  filter(th == 95) |>
+  filter(pct_overlap_1 >65)
+
+write.csv(ot, fs::path("02_draft_outputs", "06_report_summary_figures","sheep_winter_groups.csv"), row.names = FALSE)
+
+
+## Rut season - which males are hanging out with which female groups based on rut grouping 
+
+overlap_tbl <- read.csv(fs::path("02_draft_outputs", "sheep_rut_yr_overlap_pc.csv")) |> 
+  select( -X)
+
+id_key1 <- id_key |> rename("id_1" = tag_idn) |> select(id_1, sex) |> 
+  mutate(id_1 = as.integer(id_1))
+
+overlap_tbl<- left_join(overlap_tbl, id_key1)
+
+# select 95% for winter 
+
+ot <- overlap_tbl |> 
+  filter(th == 95) |>
+  filter(pct_overlap_1 >65)
+
+write.csv(ot, fs::path("02_draft_outputs", "06_report_summary_figures","sheep_rut_groups.csv"), row.names = FALSE)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-# read in the location data 
-
-allpts <- read.csv(fs::path("01_clean_data", "location_steps_all_raw.csv")) 
-
-# filter to ewes and for only breeding period based on julian dates 
-# calculate the julian date for May 1st and June 30th
-Julianday <- function(x) {
-  as.numeric(format(x, "%j"))
-}
-
-jstart <- Julianday(ymd("2024-05-01"))
-jend <- Julianday(ymd("2024-06-10"))
-#120 - 183
-
-# get list of ewes
-ewes <- allpts |> 
-  select(sheep_class, tag_idn) |> 
-  filter(sheep_class == "ewe") |> 
-  pull(tag_idn)
-
-pts <- allpts |> 
-  filter(Julianday >= jstart & Julianday <= jend) |> 
-  select("tag_idn", "Latitude", "Longitude","date_time_pst", "year_pst", "speed_ave","mcp_area_1d","mcp_area_3d" ) |> 
-  mutate(date_time_pst = ymd_hms(date_time_pst)) |> 
-  mutate(date_pst = as_date(date_time_pst)) |> 
-  filter(tag_idn %in% ewes)
-
-
-##############################################################################
-## Plot 1: combined spatial map + speed profile animation 
-###############################################################################
-
-# select only 2024 data 
-pts <- pts %>%
-  filter(year_pst ==2024)
-
-#unique(pts$tag_idn)
-
-# select only 2024 data 
-ptsi <- pts %>% filter(tag_idn %in% c( 55670) )
-#ptsi <- ptsi[1:30,]
-
-
-# # compute daily average positions and speeds
-df_ave = ptsi %>%
-  mutate(date=as.Date(date_pst)) %>%
-  group_by(tag_idn,date) %>%
-  summarise(
-    lat = mean(Latitude, na.rm = TRUE),
-    lon = mean(Longitude, na.rm = TRUE),
-    spd = mean(speed_ave, na.rm=TRUE)
-  )
-
-# create 'ideal' data with all combinations of data
-ideal = expand_grid(
-  id = unique(df_ave$tag_idn),
-  date = seq.Date(from = min(df_ave$date), to = max(df_ave$date), by = 1)
-)
-# create complete dataset
-df_all = left_join(ideal,df_ave)
-
-# 2. Generate clean GPS dataset 
-set.seed(42)
-
-n_frames <- length(df_all$tag_idn)
-
-gps_data <- data.frame(
-  time  = df_all$date, #1:n_frames,
-  long  = df_all$lon,
-  lat   = df_all$lat,
-  speed = df_all$spd
-)
-
-
-# generate an aoi per tag_id
-gps_data_sf <- st_as_sf(gps_data, coords = c("long", "lat"), crs = 4326)
-bbox <- st_bbox(gps_data_sf)
-bbox <- st_buffer(st_as_sfc(bbox), dist = 0.1) # Add a buffer to ensure we capture all points)
-
-# clip the dem for processing speed 
-cded_clip <- terra::crop(cded, bbox)
-contour_lines <- terra::as.contour(cded_clip, levels = seq(100, 2000, by = 100))
-conl <- st_as_sf(st_as_sf(contour_lines))
-
-#terra::plot(contour_lines)
-
-map_plot = ggplot()+
-  #geom_sf(data = bg)+
-  tidyterra::geom_spatraster(data = cded_clip, alpha = 0.5, show.legend = FALSE) +
-  tidyterra::scale_fill_terrain_c(direction = -1) +
-  #scale_fill_grey() +
-  geom_sf(data = conl, color = "grey", size = 0.5) +
-  coord_sf(xlim = range(gps_data$long, na.rm = TRUE), 
-           ylim = range(gps_data$lat, na.rm = TRUE), 
-           expand = FALSE) +
-  ggnewscale::new_scale_fill() +
-  # lines and points
-  geom_path(data = gps_data,
-            aes(x=long,y=lat,color=speed),
-            alpha = 0.3) +
-  geom_point(data = gps_data,
-             aes(x=long,y=lat,fill=speed),
-             alpha = 0.7, shape=21, size = 2) +
-  # formatting
-  # ggnewscale::new_scale_fill() +
-  scale_fill_viridis_c(option = "inferno")+
-  scale_color_viridis_c(option = "inferno")+
-  scale_size_continuous(range = c(0.1,10))+
-  labs(x=NULL, y=NULL, 
-       fill = 'Speed (m/s)', 
-       color = 'Speed (m/s)',
-       title = 'Date: {frame_along}')+
-  #labs(title = 'Year: {time}', x = 'GDP per capita', y = 'life expectancy') +
-  #theme_dark()+
-  #theme(panel.grid = element_blank())+
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks = element_blank(),
-        rect = element_blank())+
-  transition_reveal(time)
-
-map_plot
-
-
-
-
-
-
-
-##############################################################################
-## Plot 2: All ewes movement over lambing period - 2024
-###############################################################################
-
-
-pts <- allpts |> 
-  filter(Julianday >= jstart & Julianday <= jend) |> 
-  select("tag_idn", "Latitude", "Longitude","date_time_pst", "year_pst", "speed_ave","mcp_area_1d","mcp_area_3d" ) |> 
-  mutate(date_time_pst = ymd_hms(date_time_pst)) |> 
-  mutate(date_pst = as_date(date_time_pst)) |> 
-  filter(tag_idn %in% ewes)
-
-# select only 2024 data 
-pts <- pts %>%
-  filter(year_pst ==2024)
-
-unique(pts$tag_idn)
-
-# select only 2024 data 
-ptsi <- pts #%>% filter(tag_idn %in% c( 55670) )
-#ptsi <- ptsi[1:30,]
-
-
-# # compute daily average positions and speeds
-df_ave = ptsi %>%
-  mutate(date=as.Date(date_pst)) %>%
-  group_by(tag_idn,date) %>%
-  summarise(
-    lat = mean(Latitude, na.rm = TRUE),
-    lon = mean(Longitude, na.rm = TRUE),
-    spd = mean(speed_ave, na.rm=TRUE)
-  )
-
-# create 'ideal' data with all combinations of data
-ideal = expand_grid(
-  id = unique(df_ave$tag_idn),
-  date = seq.Date(from = min(df_ave$date), to = max(df_ave$date), by = 1)
-)
-# create complete dataset
-df_all = left_join(ideal,df_ave)
-
-
-
-# 2. Generate clean GPS dataset 
-set.seed(42)
-
-n_frames <- length(df_all$tag_idn)
-
-gps_data <- data.frame(
-  time  = df_all$date, #1:n_frames,
-  long  = df_all$lon,
-  lat   = df_all$lat,
-  id = as.character(df_all$tag_idn)
-)
-
-# 3. Create the Map Animation (Plot 1)
-# Note: Swap out theme_minimal for a real bounding map layer if desired
-# map_plot <- ggplot(gps_data, aes(x = long, y = lat)) +
-#   geom_path(color = "darkgreen", linewidth = 1) +
-#   geom_point(color = "red", size = 4) +
-#   theme_light() +
-#   labs(title = "GPS Locations", x = "Longitude", y = "Latitude") +
+# 
+# # read in the location data 
+# 
+# allpts <- read.csv(fs::path("01_clean_data", "location_steps_all_raw.csv")) 
+# 
+# # filter to ewes and for only breeding period based on julian dates 
+# # calculate the julian date for May 1st and June 30th
+# Julianday <- function(x) {
+#   as.numeric(format(x, "%j"))
+# }
+# 
+# jstart <- Julianday(ymd("2024-05-01"))
+# jend <- Julianday(ymd("2024-06-10"))
+# #120 - 183
+# 
+# # get list of ewes
+# ewes <- allpts |> 
+#   select(sheep_class, tag_idn) |> 
+#   filter(sheep_class == "ewe") |> 
+#   pull(tag_idn)
+# 
+# pts <- allpts |> 
+#   filter(Julianday >= jstart & Julianday <= jend) |> 
+#   select("tag_idn", "Latitude", "Longitude","date_time_pst", "year_pst", "speed_ave","mcp_area_1d","mcp_area_3d" ) |> 
+#   mutate(date_time_pst = ymd_hms(date_time_pst)) |> 
+#   mutate(date_pst = as_date(date_time_pst)) |> 
+#   filter(tag_idn %in% ewes)
+# 
+# 
+# ##############################################################################
+# ## Plot 1: combined spatial map + speed profile animation 
+# ###############################################################################
+# 
+# # select only 2024 data 
+# pts <- pts %>%
+#   filter(year_pst ==2024)
+# 
+# #unique(pts$tag_idn)
+# 
+# # select only 2024 data 
+# ptsi <- pts %>% filter(tag_idn %in% c( 55670) )
+# #ptsi <- ptsi[1:30,]
+# 
+# 
+# # # compute daily average positions and speeds
+# df_ave = ptsi %>%
+#   mutate(date=as.Date(date_pst)) %>%
+#   group_by(tag_idn,date) %>%
+#   summarise(
+#     lat = mean(Latitude, na.rm = TRUE),
+#     lon = mean(Longitude, na.rm = TRUE),
+#     spd = mean(speed_ave, na.rm=TRUE)
+#   )
+# 
+# # create 'ideal' data with all combinations of data
+# ideal = expand_grid(
+#   id = unique(df_ave$tag_idn),
+#   date = seq.Date(from = min(df_ave$date), to = max(df_ave$date), by = 1)
+# )
+# # create complete dataset
+# df_all = left_join(ideal,df_ave)
+# 
+# # 2. Generate clean GPS dataset 
+# set.seed(42)
+# 
+# n_frames <- length(df_all$tag_idn)
+# 
+# gps_data <- data.frame(
+#   time  = df_all$date, #1:n_frames,
+#   long  = df_all$lon,
+#   lat   = df_all$lat,
+#   speed = df_all$spd
+# )
+# 
+# 
+# # generate an aoi per tag_id
+# gps_data_sf <- st_as_sf(gps_data, coords = c("long", "lat"), crs = 4326)
+# bbox <- st_bbox(gps_data_sf)
+# bbox <- st_buffer(st_as_sfc(bbox), dist = 0.1) # Add a buffer to ensure we capture all points)
+# 
+# # clip the dem for processing speed 
+# cded_clip <- terra::crop(cded, bbox)
+# contour_lines <- terra::as.contour(cded_clip, levels = seq(100, 2000, by = 100))
+# conl <- st_as_sf(st_as_sf(contour_lines))
+# 
+# #terra::plot(contour_lines)
+# 
+# map_plot = ggplot()+
+#   #geom_sf(data = bg)+
+#   tidyterra::geom_spatraster(data = cded_clip, alpha = 0.5, show.legend = FALSE) +
+#   tidyterra::scale_fill_terrain_c(direction = -1) +
+#   #scale_fill_grey() +
+#   geom_sf(data = conl, color = "grey", size = 0.5) +
+#   coord_sf(xlim = range(gps_data$long, na.rm = TRUE), 
+#            ylim = range(gps_data$lat, na.rm = TRUE), 
+#            expand = FALSE) +
+#   ggnewscale::new_scale_fill() +
+#   # lines and points
+#   geom_path(data = gps_data,
+#             aes(x=long,y=lat,color=speed),
+#             alpha = 0.3) +
+#   geom_point(data = gps_data,
+#              aes(x=long,y=lat,fill=speed),
+#              alpha = 0.7, shape=21, size = 2) +
+#   # formatting
+#   # ggnewscale::new_scale_fill() +
+#   scale_fill_viridis_c(option = "inferno")+
+#   scale_color_viridis_c(option = "inferno")+
+#   scale_size_continuous(range = c(0.1,10))+
+#   labs(x=NULL, y=NULL, 
+#        fill = 'Speed (m/s)', 
+#        color = 'Speed (m/s)',
+#        title = 'Date: {frame_along}')+
+#   #labs(title = 'Year: {time}', x = 'GDP per capita', y = 'life expectancy') +
+#   #theme_dark()+
+#   #theme(panel.grid = element_blank())+
+#   theme(axis.text.x = element_blank(),
+#         axis.text.y = element_blank(),
+#         axis.ticks = element_blank(),
+#         rect = element_blank())+
 #   transition_reveal(time)
-
-
-# generate an aoi per tag_id
-gps_data_sf <- st_as_sf(gps_data, coords = c("long", "lat"), crs = 4326)
-bbox <- st_bbox(gps_data_sf)
-bbox <- st_buffer(st_as_sfc(bbox), dist = 0.1) # Add a buffer to ensure we capture all points)
-
-# clip the dem for processing speed 
-cded_clip <- terra::crop(cded, bbox)
-contour_lines <- terra::as.contour(cded_clip, levels = seq(100, 2000, by = 100))
-conl <- st_as_sf(st_as_sf(contour_lines))
-
-#terra::plot(contour_lines)
-
-map_plot = ggplot()+
-  #geom_sf(data = bg)+
-  tidyterra::geom_spatraster(data = cded_clip, alpha = 0.5, show.legend = FALSE) +
-  tidyterra::scale_fill_terrain_c(direction = -1) +
-  #scale_fill_viridis_c(name = "elevation") +
-  #geom_sf(data = conl, color = "grey", size = 0.5) +
-  coord_sf(xlim = range(gps_data$long, na.rm = TRUE), 
-           ylim = range(gps_data$lat, na.rm = TRUE), 
-           expand = FALSE) +
-  # lines and points
-  ggnewscale::new_scale_fill() +
-  geom_path(data = gps_data,
-            aes(x=long,y=lat,#color=id,
-                group = id),
-            alpha = 0.3) +
-  # formatting
-  geom_point(data = gps_data,
-             aes(x=long,y=lat,fill=id, group = id),
-             alpha = 0.7, shape=21, size = 2) +
-  # scale_fill_viridis_d(option = "inferno")+
-  scale_color_viridis_d(option = "inferno")+
-  scale_size_continuous(range = c(0.1,10))+
-  labs(x=NULL, y=NULL, 
-       fill = 'IDs', 
-       #color = 'Speed (m/s)',
-       title = 'Date: {frame_along}')+
-  #theme(panel.grid = element_blank())+
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks = element_blank(),
-        rect = element_blank())+
-  transition_reveal(time)
-
-map_plot
-
-
-# 5. Render frames as image lists in memory
-#message("Rendering map frames...")
-#map_anim <- animate(map_plot, nframes = n_frames, fps = 2, width = 400, height = 400, renderer = magick_renderer())
-
-final_output_path <- file.path(out_dir, "all_ewes_2024_all.gif")
-anim_save(final_output_path, animation = map_plot)
-
-## 7. Compile stitched frames and save directly to your drive
-#final_gif <- image_animate(map_anim, fps = 2)
-#final_output_path <- file.path(out_dir, "all_ewes_2024.gif")
-#
-#image_write(final_gif, path = final_output_path)
-#message("Success! File saved to: ", final_output_path)
-
-
-
-
-##############################################################################
-## Plot 3: All ewes movement over lambing period - 2025
-###############################################################################
-
-pts <- allpts |> 
-  filter(Julianday >= jstart & Julianday <= jend) |> 
-  select("tag_idn", "Latitude", "Longitude","date_time_pst", "year_pst", "speed_ave","mcp_area_1d","mcp_area_3d" ) |> 
-  mutate(date_time_pst = ymd_hms(date_time_pst)) |> 
-  mutate(date_pst = as_date(date_time_pst)) |> 
-  filter(tag_idn %in% ewes)
-
-# select only 2024 data 
-pts <- pts %>%
-  filter(year_pst ==2025)
-
-unique(pts$tag_idn)
-
-ptsi <- pts 
-
-# # compute daily average positions and speeds
-df_ave = ptsi %>%
-  mutate(date=as.Date(date_pst)) %>%
-  group_by(tag_idn,date) %>%
-  summarise(
-    lat = mean(Latitude, na.rm = TRUE),
-    lon = mean(Longitude, na.rm = TRUE),
-    spd = mean(speed_ave, na.rm=TRUE)
-  )
-
-# create 'ideal' data with all combinations of data
-ideal = expand_grid(
-  id = unique(df_ave$tag_idn),
-  date = seq.Date(from = min(df_ave$date), to = max(df_ave$date), by = 1)
-)
-# create complete dataset
-df_all = left_join(ideal,df_ave)
-
-# 2. Generate clean GPS dataset 
-set.seed(42)
-
-n_frames <- length(df_all$tag_idn)
-
-gps_data <- data.frame(
-  time  = df_all$date, #1:n_frames,
-  long  = df_all$lon,
-  lat   = df_all$lat,
-  id = as.character(df_all$tag_idn)
-)
-
-# generate an aoi per tag_id
-gps_data_sf <- st_as_sf(gps_data, coords = c("long", "lat"), crs = 4326)
-bbox <- st_bbox(gps_data_sf)
-bbox <- st_buffer(st_as_sfc(bbox), dist = 0.1) # Add a buffer to ensure we capture all points)
-
-# clip the dem for processing speed 
-cded_clip <- terra::crop(cded, bbox)
-contour_lines <- terra::as.contour(cded_clip, levels = seq(100, 2000, by = 100))
-conl <- st_as_sf(st_as_sf(contour_lines))
-
-
-map_plot25 = ggplot()+
-  #geom_sf(data = bg)+
-  tidyterra::geom_spatraster(data = cded_clip, alpha = 0.5, show.legend = FALSE) +
-  scale_fill_viridis_c(name = "elevation") +
-  #geom_sf(data = conl, color = "grey", size = 0.5) +
-  coord_sf(xlim = range(gps_data$long, na.rm = TRUE), 
-           ylim = range(gps_data$lat, na.rm = TRUE), 
-           expand = FALSE) +
-  # lines and points
-  geom_path(data = gps_data,
-            aes(x=long,y=lat,#color=id,
-                group = id),
-            alpha = 0.3) +
-  # formatting
-  ggnewscale::new_scale_fill() +
-  geom_point(data = gps_data,
-             aes(x=long,y=lat,fill=id, group = id),
-             alpha = 0.7, shape=21, size = 2) +
-  # scale_fill_viridis_d(option = "inferno")+
-  scale_color_viridis_d(option = "inferno")+
-  scale_size_continuous(range = c(0.1,10))+
-  labs(x=NULL, y=NULL, 
-       fill = 'Tag ID', 
-       #color = 'Speed (m/s)',
-       title = 'Date: {frame_along}')+
-  #theme(panel.grid = element_blank())+
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks = element_blank(),
-        rect = element_blank())+
-  transition_reveal(time)
-
-map_plot25
-
-
-
-# 5. Render frames as image lists in memory
-message("Rendering map frames...")
-#map_anim <- animate(map_plot, nframes = n_frames, fps = 2, width = 400, height = 400, renderer = magick_renderer())
-
-final_output_path <- file.path(out_dir, "all_ewes_2025_all.gif")
-
-anim_save(final_output_path, animation = map_plot25)
-
+# 
+# map_plot
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# ##############################################################################
+# ## Plot 2: All ewes movement over lambing period - 2024
+# ###############################################################################
+# 
+# 
+# pts <- allpts |> 
+#   filter(Julianday >= jstart & Julianday <= jend) |> 
+#   select("tag_idn", "Latitude", "Longitude","date_time_pst", "year_pst", "speed_ave","mcp_area_1d","mcp_area_3d" ) |> 
+#   mutate(date_time_pst = ymd_hms(date_time_pst)) |> 
+#   mutate(date_pst = as_date(date_time_pst)) |> 
+#   filter(tag_idn %in% ewes)
+# 
+# # select only 2024 data 
+# pts <- pts %>%
+#   filter(year_pst ==2024)
+# 
+# unique(pts$tag_idn)
+# 
+# # select only 2024 data 
+# ptsi <- pts #%>% filter(tag_idn %in% c( 55670) )
+# #ptsi <- ptsi[1:30,]
+# 
+# 
+# # # compute daily average positions and speeds
+# df_ave = ptsi %>%
+#   mutate(date=as.Date(date_pst)) %>%
+#   group_by(tag_idn,date) %>%
+#   summarise(
+#     lat = mean(Latitude, na.rm = TRUE),
+#     lon = mean(Longitude, na.rm = TRUE),
+#     spd = mean(speed_ave, na.rm=TRUE)
+#   )
+# 
+# # create 'ideal' data with all combinations of data
+# ideal = expand_grid(
+#   id = unique(df_ave$tag_idn),
+#   date = seq.Date(from = min(df_ave$date), to = max(df_ave$date), by = 1)
+# )
+# # create complete dataset
+# df_all = left_join(ideal,df_ave)
+# 
+# 
+# 
+# # 2. Generate clean GPS dataset 
+# set.seed(42)
+# 
+# n_frames <- length(df_all$tag_idn)
+# 
+# gps_data <- data.frame(
+#   time  = df_all$date, #1:n_frames,
+#   long  = df_all$lon,
+#   lat   = df_all$lat,
+#   id = as.character(df_all$tag_idn)
+# )
+# 
+# # 3. Create the Map Animation (Plot 1)
+# # Note: Swap out theme_minimal for a real bounding map layer if desired
+# # map_plot <- ggplot(gps_data, aes(x = long, y = lat)) +
+# #   geom_path(color = "darkgreen", linewidth = 1) +
+# #   geom_point(color = "red", size = 4) +
+# #   theme_light() +
+# #   labs(title = "GPS Locations", x = "Longitude", y = "Latitude") +
+# #   transition_reveal(time)
+# 
+# 
+# # generate an aoi per tag_id
+# gps_data_sf <- st_as_sf(gps_data, coords = c("long", "lat"), crs = 4326)
+# bbox <- st_bbox(gps_data_sf)
+# bbox <- st_buffer(st_as_sfc(bbox), dist = 0.1) # Add a buffer to ensure we capture all points)
+# 
+# # clip the dem for processing speed 
+# cded_clip <- terra::crop(cded, bbox)
+# contour_lines <- terra::as.contour(cded_clip, levels = seq(100, 2000, by = 100))
+# conl <- st_as_sf(st_as_sf(contour_lines))
+# 
+# #terra::plot(contour_lines)
+# 
+# map_plot = ggplot()+
+#   #geom_sf(data = bg)+
+#   tidyterra::geom_spatraster(data = cded_clip, alpha = 0.5, show.legend = FALSE) +
+#   tidyterra::scale_fill_terrain_c(direction = -1) +
+#   #scale_fill_viridis_c(name = "elevation") +
+#   #geom_sf(data = conl, color = "grey", size = 0.5) +
+#   coord_sf(xlim = range(gps_data$long, na.rm = TRUE), 
+#            ylim = range(gps_data$lat, na.rm = TRUE), 
+#            expand = FALSE) +
+#   # lines and points
+#   ggnewscale::new_scale_fill() +
+#   geom_path(data = gps_data,
+#             aes(x=long,y=lat,#color=id,
+#                 group = id),
+#             alpha = 0.3) +
+#   # formatting
+#   geom_point(data = gps_data,
+#              aes(x=long,y=lat,fill=id, group = id),
+#              alpha = 0.7, shape=21, size = 2) +
+#   # scale_fill_viridis_d(option = "inferno")+
+#   scale_color_viridis_d(option = "inferno")+
+#   scale_size_continuous(range = c(0.1,10))+
+#   labs(x=NULL, y=NULL, 
+#        fill = 'IDs', 
+#        #color = 'Speed (m/s)',
+#        title = 'Date: {frame_along}')+
+#   #theme(panel.grid = element_blank())+
+#   theme(axis.text.x = element_blank(),
+#         axis.text.y = element_blank(),
+#         axis.ticks = element_blank(),
+#         rect = element_blank())+
+#   transition_reveal(time)
+# 
+# map_plot
+# 
+# 
+# # 5. Render frames as image lists in memory
+# #message("Rendering map frames...")
+# #map_anim <- animate(map_plot, nframes = n_frames, fps = 2, width = 400, height = 400, renderer = magick_renderer())
+# 
+# final_output_path <- file.path(out_dir, "all_ewes_2024_all.gif")
+# anim_save(final_output_path, animation = map_plot)
+# 
+# ## 7. Compile stitched frames and save directly to your drive
+# #final_gif <- image_animate(map_anim, fps = 2)
+# #final_output_path <- file.path(out_dir, "all_ewes_2024.gif")
+# #
+# #image_write(final_gif, path = final_output_path)
+# #message("Success! File saved to: ", final_output_path)
+# 
+# 
+# 
+# 
+# ##############################################################################
+# ## Plot 3: All ewes movement over lambing period - 2025
+# ###############################################################################
+# 
+# pts <- allpts |> 
+#   filter(Julianday >= jstart & Julianday <= jend) |> 
+#   select("tag_idn", "Latitude", "Longitude","date_time_pst", "year_pst", "speed_ave","mcp_area_1d","mcp_area_3d" ) |> 
+#   mutate(date_time_pst = ymd_hms(date_time_pst)) |> 
+#   mutate(date_pst = as_date(date_time_pst)) |> 
+#   filter(tag_idn %in% ewes)
+# 
+# # select only 2024 data 
+# pts <- pts %>%
+#   filter(year_pst ==2025)
+# 
+# unique(pts$tag_idn)
+# 
+# ptsi <- pts 
+# 
+# # # compute daily average positions and speeds
+# df_ave = ptsi %>%
+#   mutate(date=as.Date(date_pst)) %>%
+#   group_by(tag_idn,date) %>%
+#   summarise(
+#     lat = mean(Latitude, na.rm = TRUE),
+#     lon = mean(Longitude, na.rm = TRUE),
+#     spd = mean(speed_ave, na.rm=TRUE)
+#   )
+# 
+# # create 'ideal' data with all combinations of data
+# ideal = expand_grid(
+#   id = unique(df_ave$tag_idn),
+#   date = seq.Date(from = min(df_ave$date), to = max(df_ave$date), by = 1)
+# )
+# # create complete dataset
+# df_all = left_join(ideal,df_ave)
+# 
+# # 2. Generate clean GPS dataset 
+# set.seed(42)
+# 
+# n_frames <- length(df_all$tag_idn)
+# 
+# gps_data <- data.frame(
+#   time  = df_all$date, #1:n_frames,
+#   long  = df_all$lon,
+#   lat   = df_all$lat,
+#   id = as.character(df_all$tag_idn)
+# )
+# 
+# # generate an aoi per tag_id
+# gps_data_sf <- st_as_sf(gps_data, coords = c("long", "lat"), crs = 4326)
+# bbox <- st_bbox(gps_data_sf)
+# bbox <- st_buffer(st_as_sfc(bbox), dist = 0.1) # Add a buffer to ensure we capture all points)
+# 
+# # clip the dem for processing speed 
+# cded_clip <- terra::crop(cded, bbox)
+# contour_lines <- terra::as.contour(cded_clip, levels = seq(100, 2000, by = 100))
+# conl <- st_as_sf(st_as_sf(contour_lines))
+# 
+# 
+# map_plot25 = ggplot()+
+#   #geom_sf(data = bg)+
+#   tidyterra::geom_spatraster(data = cded_clip, alpha = 0.5, show.legend = FALSE) +
+#   scale_fill_viridis_c(name = "elevation") +
+#   #geom_sf(data = conl, color = "grey", size = 0.5) +
+#   coord_sf(xlim = range(gps_data$long, na.rm = TRUE), 
+#            ylim = range(gps_data$lat, na.rm = TRUE), 
+#            expand = FALSE) +
+#   # lines and points
+#   geom_path(data = gps_data,
+#             aes(x=long,y=lat,#color=id,
+#                 group = id),
+#             alpha = 0.3) +
+#   # formatting
+#   ggnewscale::new_scale_fill() +
+#   geom_point(data = gps_data,
+#              aes(x=long,y=lat,fill=id, group = id),
+#              alpha = 0.7, shape=21, size = 2) +
+#   # scale_fill_viridis_d(option = "inferno")+
+#   scale_color_viridis_d(option = "inferno")+
+#   scale_size_continuous(range = c(0.1,10))+
+#   labs(x=NULL, y=NULL, 
+#        fill = 'Tag ID', 
+#        #color = 'Speed (m/s)',
+#        title = 'Date: {frame_along}')+
+#   #theme(panel.grid = element_blank())+
+#   theme(axis.text.x = element_blank(),
+#         axis.text.y = element_blank(),
+#         axis.ticks = element_blank(),
+#         rect = element_blank())+
+#   transition_reveal(time)
+# 
+# map_plot25
+# 
+# 
+# 
+# # 5. Render frames as image lists in memory
+# message("Rendering map frames...")
+# #map_anim <- animate(map_plot, nframes = n_frames, fps = 2, width = 400, height = 400, renderer = magick_renderer())
+# 
+# final_output_path <- file.path(out_dir, "all_ewes_2025_all.gif")
+# 
+# anim_save(final_output_path, animation = map_plot25)
+# 
