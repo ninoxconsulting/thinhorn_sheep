@@ -15,7 +15,6 @@ library(ggplot2)
 # polygons overlap (as a % of each animal's own range).
 # ============================================================================
 
-
 all_poly <- st_read(fs::path("02_draft_outputs", "sheep_yr_polygons_bbmm30.gpkg"))
 
 #all_poly <- all_poly |>
@@ -190,13 +189,16 @@ overlap_tbl <- poly_clean |>
 overlap_tbl
 
 # write out overlap summary
-write.csv(overlap_tbl, path("02_draft_outputs", "sheep_summer_yr_overlap_pc.csv"))
-
+#write.csv(overlap_tbl, path("02_draft_outputs", "sheep_winter_yr_overlap_pc.csv"))
 
 # ============================================================================
 # 4. HEATMAP for one stratum -- visualize the pairwise overlap matrix
 # ============================================================================
-focus_year  <- 2025
+#overlap_tbl <- read.csv(fs::path("02_draft_outputs", "sheep_winter_yr_overlap_pc.csv")) |> 
+#  select(-X.1, -X)
+
+head(overlap_tbl)
+focus_year  <- 2024
 focus_th    <- 95
 
 heat_wide <- overlap_tbl |>
@@ -221,6 +223,8 @@ winter_ol <- ggplot(heat_df, aes(x = id_other, y = id, fill = pct)) +
 
 ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_winter_overlap_matrix_", focus_year, "_th", focus_th,".png")), 
        winter_ol, width = 10, height = 10, dpi = 300)
+
+
 
 
 ##############################################################
@@ -330,6 +334,123 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_summ
 
 
 
+##############################################################
+# 4. Rut Season Overlap 9Oct/ Nov 
+##############################################################
+
+all_poly <- st_read(fs::path("02_draft_outputs", "sheep_rut_yr_polygons_bbmm30.gpkg"))
+all_poly <- rename(all_poly, "year" = year_pst)
+
+poly_clean <- all_poly |>
+  group_by(id, th, year) |>
+  summarise(geometry = st_union(geom), .groups = "drop") |>
+  st_make_valid()
+
+
+# ---- 1. PAIRWISE OVERLAP WITHIN ONE STRATUM ---------------------------------
+overlap_one_group <- function(sub_sf) {
+  ids <- unique(sub_sf$id)
+  if (length(ids) < 2) return(tibble())
+  
+  pairs <- combn(ids, 2, simplify = FALSE)
+  
+  map_dfr(pairs, function(p) {
+    poly_i <- sub_sf |> filter(id == p[1])
+    poly_j <- sub_sf |> filter(id == p[2])
+    
+    area_i <- as.numeric(st_area(poly_i)) / 10000   # hectares
+    area_j <- as.numeric(st_area(poly_j)) / 10000
+    
+    inter <- suppressWarnings(st_intersection(poly_i, poly_j))
+    if (nrow(inter) == 0) {
+      area_inter <- 0
+    } else {
+      inter_poly <- suppressWarnings(st_collection_extract(inter, "POLYGON"))
+      area_inter <- if (nrow(inter_poly) > 0) sum(as.numeric(st_area(inter_poly))) / 10000 else 0
+    }
+    
+    union_area <- area_i + area_j - area_inter
+    
+    tibble(
+      id_1 = p[1],
+      id_2 = p[2],
+      area_1_ha       = area_i,
+      area_2_ha       = area_j,
+      overlap_area_ha = area_inter,
+      pct_overlap_1   = 100 * area_inter / area_i,   # % of id_1's range overlapped by id_2
+      pct_overlap_2   = 100 * area_inter / area_j,   # % of id_2's range overlapped by id_1
+      jaccard         = if (union_area > 0) area_inter / union_area else 0  # symmetric index
+    )
+  })
+}
+
+# ---- 2. RUN ACROSS EVERY month x year x th STRATUM --------------------------
+overlap_tbl <- poly_clean |>
+  group_by( year, th) |>
+  group_split() |>
+  map_dfr(function(grp) {
+    res <- overlap_one_group(grp)
+    if (nrow(res) > 0) {
+      res <- res |> mutate(year = grp$year[1], th = grp$th[1])
+    }
+    res
+  }) |>
+  relocate( year, th)
+
+overlap_tbl
+
+# write out overlap summary
+write.csv(overlap_tbl, path("02_draft_outputs", "sheep_rut_yr_overlap_pc.csv"))
+
+
+# ============================================================================
+# 4. HEATMAP for one stratum -- visualize the pairwise overlap matrix
+# ============================================================================
+focus_year  <- 2024
+focus_th    <- 95
+
+heat_wide <- overlap_tbl |>
+  filter(year == focus_year, th == focus_th) |>
+  select(id_1, id_2, pct_overlap_1, pct_overlap_2)
+
+# make it symmetric for a clean heatmap: one row per directional pair
+heat_df <- bind_rows(
+  heat_wide |> transmute(id = id_1, id_other = id_2, pct = pct_overlap_1),
+  heat_wide |> transmute(id = id_2, id_other = id_1, pct = pct_overlap_2)
+)
+
+rut_ol <- ggplot(heat_df, aes(x = id_other, y = id, fill = pct)) +
+  geom_tile() +
+  geom_text(aes(label = round(pct)), size = 3) +
+  scale_fill_viridis_c(name = "% of\nrow id's\nrange", limits = c(1, 100)) +
+  labs(x = NULL, y = NULL,
+       title = paste("Pairwise summer home range overlap --",
+                     "year", focus_year, "th", focus_th),
+       subtitle = "Cell = % of row animal's range that overlaps column animal's range") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+rut_ol
+
+ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_rut_overlap_matrix_", focus_year, "_th", focus_th,".png")), 
+       rut_ol, width = 10, height = 10, dpi = 300)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -344,8 +465,8 @@ poly_summer     # summers
 poly_winter     # winter 
 
 poly_clean <- poly_annual_all
-
-
+poly_clean <- poly_summer
+poly_clean <- poly_winter
 # ---- 5a. one polygon per id x th x year (union across months) --------------
 poly_annual <- poly_clean |>
   mutate(id = as.character(id)) |>
@@ -421,6 +542,7 @@ fidelity_summary <- year_overlap_tbl |>
   arrange(th, desc(mean_jaccard))
 
 fidelity_summary
+
 # animals near the top of this table (high mean_jaccard) keep coming back to
 # roughly the same area year after year; animals near the bottom are ranging
 # into substantially different areas from one year to the next.
@@ -433,16 +555,16 @@ fidelity_summary
 #   labs(x = NULL, y = "Mean year-to-year overlap (Jaccard)",
 #        title = "Site fidelity: how consistently each individual reuses the same area across years")
 
-# ---- 5e. map ONE individual's range across all years, overlaid -------------
-focus_id_fidelity <- fidelity_summary$id[1]   # <-- change to inspect a specific animal
-focus_th_fidelity  <- 95# fidelity_summary$th[1]
-
-poly_annual |>
-  filter(id == focus_id_fidelity, th == focus_th_fidelity) |>
-  ggplot() +
-  geom_sf(aes(colour = year, fill = as.factor(year)), alpha = 0.25, linewidth = 0.8) +
-  labs(title = paste("Annual range across years -- id", focus_id_fidelity, "th", focus_th_fidelity),
-       subtitle = "More overlapping shapes across years = higher site fidelity")
+# # ---- 5e. map ONE individual's range across all years, overlaid -------------
+# focus_id_fidelity <- fidelity_summary$id[1]   # <-- change to inspect a specific animal
+# focus_th_fidelity  <- 95# fidelity_summary$th[1]
+# 
+# poly_annual |>
+#   filter(id == focus_id_fidelity, th == focus_th_fidelity) |>
+#   ggplot() +
+#   geom_sf(aes(colour = year, fill = as.factor(year)), alpha = 0.25, linewidth = 0.8) +
+#   labs(title = paste("Annual range across years -- id", focus_id_fidelity, "th", focus_th_fidelity),
+#        subtitle = "More overlapping shapes across years = higher site fidelity")
 
 
 
@@ -513,9 +635,21 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_over
 
 
 
+###############################################################################
+## Generate a table with the overlaps 
 
+id_key <- id_key |> #rename("id"= "tag_idn") |>  
+  select(id, sex)
 
+fidelity_summary_95 <- fidelity_summary |>
+  filter(th == 95)
 
+fidelity_summary_95<- left_join(fidelity_summary_95, id_key)
 
-
-
+fid_table <- fidelity_summary_95 |>
+  group_by(sex) |> 
+  summarise(n = n(),
+            min_pct = min(mean_pct_overlap),
+            max_pct = max(mean_pct_overlap),
+            mean_pct_overlap = mean(mean_pct_overlap))
+fid_table
