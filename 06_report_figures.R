@@ -2,7 +2,6 @@
 
 library(ggplot2)
 library(patchwork)
-library(dplyr)
 library(tidyr)
 library(tidyverse)
 library(tidyterra)
@@ -13,25 +12,30 @@ library(sf)
 library(lubridate)
 library(terra)
 library(fs)
+library(ggspatial)   # annotation_north_arrow(), annotation_scale()
+library(patchwork)   # inset_element()
+library(dplyr)
+library(bcmaps)
+library(Polychrome)
+
 
 
 # read in the summary data 
 clean_dir <- fs::path("01_clean_data")
 out_dir <- fs::path("02_draft_outputs/01_lamb_figures")
 
-
 # read in graphics background
-dem <- rast(path("02_draft_outputs","02_lamb_kde", "lambing_kde_dem.tif"))
-slope_r  <- terrain(dem, v = "slope",  unit = "radians")
-aspect_r <- terrain(dem, v = "aspect", unit = "radians")
-hillshade <- shade(slope_r, aspect_r, angle = 45, direction = 315)  # sun altitude/azimuth
+#dem <- rast(path("02_draft_outputs","02_lamb_kde", "lambing_kde_dem.tif"))
+#slope_r  <- terrain(dem, v = "slope",  unit = "radians")
+#aspect_r <- terrain(dem, v = "aspect", unit = "radians")
+#hillshade <- shade(slope_r, aspect_r, angle = 45, direction = 315)  # sun altitude/azimuth
 
 # get boundaries
 bg = ne_countries(scale = "medium", continent = 'north america', returnclass = "sf")
 bg <- bg |> select(admin, continent)
 
 # use .gpkg as csv drops time stamp
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"))
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260731.gpkg"))
 
 # add X and Y columns 
 allpts <- cbind(allpts, st_coordinates(allpts))
@@ -42,7 +46,7 @@ id_key <- allpts |>
   st_drop_geometry() |> 
   unique()  
 
-
+# generate a lookup to update ages over time. 
 age_lookup <- allpts |>
   select(tag_idn, year_pst, Age_annuli) |>
   mutate(tag_idn = as.character(tag_idn)) |> 
@@ -51,9 +55,6 @@ age_lookup <- allpts |>
   mutate(cap_year= min(year_pst)) |> 
   rowwise() |> 
   mutate(Age_annuli_est = Age_annuli + (year_pst - cap_year)) 
-
-
-
 
 sheep_data <- allpts |> 
   st_drop_geometry() |>
@@ -66,16 +67,13 @@ sheep_data <- allpts |>
 sheep_data <- sheep_data %>%
   mutate(date_pst = as.Date(date_pst))
 
-# quick sanity check -- should print "Date"
-#print(class(sheep_data$date_pst))
-
 # ------------------------------------------------------------
 # 1. One row per sheep per day it has at least one GPS fix
 # ------------------------------------------------------------
 sheep_days <- sheep_data %>%
   distinct(tag_idn, date_pst) %>%
   arrange(tag_idn, date_pst) |> 
-  left_join(id_key, by = "tag_idn")   # FIX: explicit `by=` (was implicit)
+  left_join(id_key, by = "tag_idn")   
 
 # Common date range, used to align both panels' x-axes exactly
 date_range <- range(sheep_days$date_pst )
@@ -122,8 +120,6 @@ daily_active <- sheep_days %>%
 # p_timeline
 
 
-
-
 # ------------------------------------------------------------
 # 4. Panel A -- per-sheep activity timeline
 # ------------------------------------------------------------
@@ -131,6 +127,7 @@ daily_active <- sheep_days %>%
 # then find the boundaries where sheep_class changes -- used to draw
 # break lines between groups -- and each group's midpoint, used to
 # place a class label alongside the plot.
+
 sheep_range <- sheep_range %>%
   mutate(y_pos = as.integer(tag_idn))
 
@@ -149,58 +146,35 @@ p_timeline <- ggplot(sheep_range) +
   geom_segment(aes(x = start_date, xend = end_date, y = tag_idn, yend = tag_idn,
                    colour = factor(sex)),
                linewidth = 2.5, lineend = "round") +
-  # break lines between sheep_class groups, in place of faceting --
-  # avoids the lopsided panel sizes free_y faceting produced when
-  # class sizes are very uneven
   geom_hline(yintercept = break_lines, linetype = "dashed", colour = "grey40", linewidth = 0.5) +
-  # class label alongside each group, since there's no facet strip
-  # to show it anymore
   geom_text(data = class_labels, aes(x = date_range[2], y = y_mid, label = sheep_class),
             hjust = -0.05, fontface = "bold", size = 3, inherit.aes = FALSE) +
   scale_colour_manual(name = "Sex", values = c("female" = "firebrick", "male" = "steelblue")) +
   scale_x_date(limits = date_range, breaks = scales::breaks_pretty(n = 10), date_labels = "%b %Y") +
-  coord_cartesian(clip = "off") +   # lets the class labels draw just outside the panel
-  labs(x = NULL, y = "Sheep (Tag ID)", title = "Sheep GPS Activity Timeline") +
+  coord_cartesian(clip = "off") +   
+  labs(x = NULL, y = "Sheep (Collar ID)")+ 
   theme_minimal() +
   theme(
     axis.text.y = element_text(size = 6),
     axis.text.x = element_text(size = 8),
-    plot.margin = margin(5.5, 60, 5.5, 5.5)   # extra right margin for class labels
+    plot.margin = margin(5.5, 60, 5.5, 5.5)   
   )
 p_timeline
 
 # write out 
-ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","sheep_duration_class_summary.png"), width = 9, height = 12, dpi = 300)
-
-############################################################################
-
+ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","sheep_duration_class_summary.png"), width = 10, height = 11, dpi = 300)
 
 
 # ============================================================
 # Spatial map: all sheep GPS points over hillshade,
 # with a north arrow, scale bar, and a BC-wide inset map
 # ------------------------------------------------------------
-# Assumes `allpts` (sf points, already loaded) and `hillshade`
-# (SpatRaster, already computed) exist in the session -- both are
-# built earlier in the activity-summary script. If running this
-# standalone, re-run those steps first (DEM load -> terrain() ->
-# shade()) before this script.
-# ============================================================
 
-library(ggplot2)
-library(sf)
-library(terra)
-library(tidyterra)
-library(ggspatial)   # annotation_north_arrow(), annotation_scale()
-library(patchwork)   # inset_element()
-library(dplyr)
-library(bcmaps)
-library(Polychrome)
 # ------------------------------------------------------------
 # 1. Main map: all GPS points over hillshade
 # ------------------------------------------------------------
 # read in the location data # use .gpkg as csv drops time stamp
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"))
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260731.gpkg"))
 allpts1 <- allpts |> 
   select(tag_idn, date_pst.y,Age_annuli, sheep_class, sex) |> 
   group_by(tag_idn, date_pst.y) |> 
@@ -216,14 +190,40 @@ id_colours <- as.vector(createPalette(
 pts_bbox <- st_bbox(allpts1)
 pad <- 3000  # metres of padding around the points, adjust to taste
 
+## WITH HILLSHADE 
+# main_map <- ggplot() +
+#   geom_spatraster(data = hillshade, show.legend = FALSE, alpha = 0.01) +
+#   scale_fill_gradient(low = "grey10", high = "grey95", na.value = NA) +
+#   ggnewscale::new_scale_fill() +
+#   geom_sf(data = allpts1, aes(colour = factor(tag_idn)), size = 1.2, alpha = 0.5) +
+#   scale_colour_manual(name = "Sheep ID", values = id_colours) +
+#   #scale_colour_viridis_d(name = "Sheep ID") +
+#   #scale_colour_manual(name = "Sex", values = c("female" = "firebrick", "male" = "steelblue")) +
+#   coord_sf(
+#     xlim = c(pts_bbox["xmin"] - pad, pts_bbox["xmax"] + pad),
+#     ylim = c(pts_bbox["ymin"] - pad, pts_bbox["ymax"] + pad),
+#     expand = FALSE
+#   ) +
+#   annotation_north_arrow(
+#     location = "tr", which_north = "true",
+#     style = north_arrow_fancy_orienteering(),
+#     height = unit(1.2, "cm"), width = unit(1.2, "cm")
+#   ) +
+#   annotation_scale(location = "br", width_hint = 0.25) +
+#   #labs(title = "Sheep GPS Locations") +
+#   theme_minimal() +
+#   theme(
+#     axis.title  = element_blank(),
+#     panel.grid  = element_blank(),
+#     axis.text   = element_blank(),
+#     axis.ticks  = element_blank(),
+#     legend.position = "none"
+#   )
+
+## NO HILLSHADE
 main_map <- ggplot() +
-  geom_spatraster(data = hillshade, show.legend = FALSE, alpha = 0.4) +
-  scale_fill_gradient(low = "grey10", high = "grey95", na.value = NA) +
-  ggnewscale::new_scale_fill() +
-  geom_sf(data = allpts1, aes(colour = factor(tag_idn)), size = 1.2, alpha = 0.5) +
+  geom_sf(data = allpts, aes(colour = factor(tag_idn)), size = 1.2, alpha = 0.5) +
   scale_colour_manual(name = "Sheep ID", values = id_colours) +
-  #scale_colour_viridis_d(name = "Sheep ID") +
-  #scale_colour_manual(name = "Sex", values = c("female" = "firebrick", "male" = "steelblue")) +
   coord_sf(
     xlim = c(pts_bbox["xmin"] - pad, pts_bbox["xmax"] + pad),
     ylim = c(pts_bbox["ymin"] - pad, pts_bbox["ymax"] + pad),
@@ -235,20 +235,20 @@ main_map <- ggplot() +
     height = unit(1.2, "cm"), width = unit(1.2, "cm")
   ) +
   annotation_scale(location = "br", width_hint = 0.25) +
-  labs(title = "Sheep GPS Locations") +
   theme_minimal() +
   theme(
     axis.title  = element_blank(),
-    panel.grid  = element_blank(),
     axis.text   = element_blank(),
     axis.ticks  = element_blank(),
+    panel.grid  = element_blank(),
+    panel.background = element_rect(fill = "white", colour = NA),
+    panel.border      = element_rect(colour = "black", fill = NA, linewidth = 0.4),
     legend.position = "none"
   )
 
-# ------------------------------------------------------------
-# 2. Inset map: all of BC, with a red box marking the main map's extent
-# ------------------------------------------------------------
-bc <- bcmaps::bc_bound()  # sf polygon, BC Albers (EPSG:3005)
+# add subset map 
+
+bc <- bcmaps::bc_bound()  
 
 extent_box <- st_as_sfc(st_bbox(
   c(xmin = unname(pts_bbox["xmin"] - pad),
@@ -264,17 +264,14 @@ inset_map <- ggplot() +
   theme_void() +
   theme(panel.background = element_rect(fill = "white", colour = "black", linewidth = 0.5))
 
-# ------------------------------------------------------------
-# 3. Combine: inset placed in the map's top-right corner
-# ------------------------------------------------------------
-# Adjust left/bottom/right/top (0-1, fraction of the full plot) to
-# reposition or resize the inset.
+
+# Combine: inset placed in the map's top-right corner
 sheep_point_map <- main_map +
   inset_element(inset_map, left = 0.78, bottom = 0.08, right = 0.99, top = 0.30)
 sheep_point_map
 
-ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","sheep_points_hillshade_map.png"), 
-       sheep_point_map, width = 10, height = 9, dpi = 300)
+ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","sheep_points_blank_allpts.png"), 
+       sheep_point_map, width = 10, height = 8, dpi = 300)
 
 
 
@@ -284,78 +281,138 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","sheep_points_hi
 
 
 ###############################################################################
-## PLot the UD per year per individual 
-
+## Plot the UD per year per individual 
 #################################################################################
 
-#allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"))
 all_poly<- st_read(fs::path("02_draft_outputs", "sheep_yr_polygons_bbmm30.gpkg"))
-all_poly <- all_poly |> filter(th ==50)
+
 all_poly <- left_join(all_poly, id_key, by = c("id" = "tag_idn"))
 
 pts_bbox <- st_bbox(all_poly)
 pad <- 3000  # metres of padding around the points, adjust to taste
 
+year_colors <- c("2024" = "#E69F00", "2025" = "#56B4E9", "2026" = "#009E73")
+
+focus_th_fidelity <- 95 #fidelity_summary$th[1]   # <-- change to inspect a different isopleth
+
 ## Ewes 
 ewes <- all_poly |> filter(sex == "female")
 
-main_map <- ggplot() +
-  geom_spatraster(data = hillshade, show.legend = FALSE, alpha = 0.4) +
-  scale_fill_gradient(low = "grey10", high = "grey95", na.value = NA) +
-  ggnewscale::new_scale_fill() +
-  geom_sf(data = ewes, aes(colour = factor(year)), size = 1.2, alpha = 0.5) +
-  facet_wrap(~id)+
-  scale_colour_viridis_d(name = "Year") +
-  #scale_colour_manual(name = "Sex", values = c("female" = "firebrick", "male" = "steelblue")) +
-  coord_sf(
-    xlim = c(pts_bbox["xmin"] - pad, pts_bbox["xmax"] + pad),
-    ylim = c(pts_bbox["ymin"] - pad, pts_bbox["ymax"] + pad),
-    expand = FALSE
-  ) +
-  labs(title = "Ewes Home Range per year") +
-  theme_minimal() +
-  theme(
-    axis.title  = element_blank(),
-    panel.grid  = element_blank(),
-    axis.text   = element_blank(),
-    axis.ticks  = element_blank()#,
-    #legend.position = "none"
-  )
-main_map
+poly_annual <- ewes |> 
+  mutate(year = as.factor(year))
 
-ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","ewes_UD_yr_hillshade_map.png"), 
-       main_map, width = 10, height = 10, dpi = 300)
+ids_fidelity <- poly_annual |>
+  filter(th == focus_th_fidelity) |>
+  st_drop_geometry() |>
+  count(id, name = "n_years") |>
+  filter(n_years >= 2) |>       # drop ids with only one year -- nothing to compare
+  pull(id) |>
+  sort()
 
-## Males
-males <- all_poly |> filter(sex == "male")
+# real panel's legend off.
+legend_ref <- tibble(year = factor(names(year_colors), levels = names(year_colors)), x = 1, y = 1)
 
-main_map <- ggplot() +
-  geom_spatraster(data = hillshade, show.legend = FALSE, alpha = 0.4) +
-  scale_fill_gradient(low = "grey10", high = "grey95", na.value = NA) +
-  ggnewscale::new_scale_fill() +
-  geom_sf(data = males, aes(colour = factor(year)), size = 1.2, alpha = 0.5) +
-  facet_wrap(~id)+
-  scale_colour_viridis_d(name = "Year") +
-  #scale_colour_manual(name = "Sex", values = c("female" = "firebrick", "male" = "steelblue")) +
-  coord_sf(
-    xlim = c(pts_bbox["xmin"] - pad, pts_bbox["xmax"] + pad),
-    ylim = c(pts_bbox["ymin"] - pad, pts_bbox["ymax"] + pad),
-    expand = FALSE
-  ) +
-   labs(title = "Rams Home Range per year") +
-  theme_minimal() +
-  theme(
-    axis.title  = element_blank(),
-    panel.grid  = element_blank(),
-    axis.text   = element_blank(),
-    axis.ticks  = element_blank()#,
-    #legend.position = "none"
+legend_ref_plot <- ggplot(legend_ref, aes(x, y, colour = year, fill = year)) +
+  geom_point(size = 4, shape = 21) +
+  scale_colour_manual(values = year_colors, name = "Year") +
+  scale_fill_manual(values = year_colors, name = "Year") +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+shared_legend <- get_legend(legend_ref_plot)
+
+id_plots <- map(ids_fidelity, function(this_id) {
+  poly_annual |>
+    filter(id == this_id, th == focus_th_fidelity) |>
+    mutate(year = factor(as.character(year), levels = names(year_colors))) |>
+    ggplot() +
+    geom_sf(aes(colour = year, fill = year), alpha = 0.25, linewidth = 0.6) +
+    scale_colour_manual(values = year_colors, drop = FALSE, guide = "none") +
+    scale_fill_manual(values = year_colors, drop = FALSE, guide = "none") +
+    labs(title = this_id) +
+    theme_minimal() +
+    theme(
+      panel.background = element_rect(fill = "grey85", colour = NA),  # <-- adjust shade here
+      panel.grid        = element_blank(),
+      axis.title        = element_blank(),
+      axis.text         = element_blank(),
+      axis.ticks        = element_blank(),
+      plot.title        = element_text(size = 9, hjust = 0.5)
+    )
+})
+
+panel_grid <- wrap_plots(id_plots) +
+  plot_annotation(
+    title = paste("Annual female home range (95%)")
   )
 
-main_map
+all_yr_overlap<-wrap_elements(panel_grid) / wrap_elements(shared_legend) +
+  plot_layout(heights = c(20, 1))   # legend gets a thin strip along the bottom
 
-ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","rams_UD_yr_hillshade_map.png"), 
-       main_map, width = 10, height = 10, dpi = 300)
+all_yr_overlap
+
+ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_overlap_annual_map_female.png")), 
+       all_yr_overlap, width = 10, height = 10, dpi = 300)
+
+
+## repeat for males 
+rams <- all_poly |> filter(sex == "male")
+
+poly_annual <- rams |> 
+  mutate(year = as.factor(year))
+
+ids_fidelity <- poly_annual |>
+  filter(th == focus_th_fidelity) |>
+  st_drop_geometry() |>
+  count(id, name = "n_years") |>
+  filter(n_years >= 2) |>       # drop ids with only one year -- nothing to compare
+  pull(id) |>
+  sort()
+
+# real panel's legend off.
+legend_ref <- tibble(year = factor(names(year_colors), levels = names(year_colors)), x = 1, y = 1)
+
+legend_ref_plot <- ggplot(legend_ref, aes(x, y, colour = year, fill = year)) +
+  geom_point(size = 4, shape = 21) +
+  scale_colour_manual(values = year_colors, name = "Year") +
+  scale_fill_manual(values = year_colors, name = "Year") +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+shared_legend <- get_legend(legend_ref_plot)
+
+id_plots <- map(ids_fidelity, function(this_id) {
+  poly_annual |>
+    filter(id == this_id, th == focus_th_fidelity) |>
+    mutate(year = factor(as.character(year), levels = names(year_colors))) |>
+    ggplot() +
+    geom_sf(aes(colour = year, fill = year), alpha = 0.25, linewidth = 0.6) +
+    scale_colour_manual(values = year_colors, drop = FALSE, guide = "none") +
+    scale_fill_manual(values = year_colors, drop = FALSE, guide = "none") +
+    labs(title = this_id) +
+    theme_minimal() +
+    theme(
+      panel.background = element_rect(fill = "grey85", colour = NA),  # <-- adjust shade here
+      panel.grid        = element_blank(),
+      axis.title        = element_blank(),
+      axis.text         = element_blank(),
+      axis.ticks        = element_blank(),
+      plot.title        = element_text(size = 9, hjust = 0.5)
+    )
+})
+
+panel_grid <- wrap_plots(id_plots) +
+  plot_annotation(
+    title = paste("Annual male home range (95%)")
+  )
+
+all_yr_overlap<-wrap_elements(panel_grid) / wrap_elements(shared_legend) +
+  plot_layout(heights = c(20, 1))   # legend gets a thin strip along the bottom
+
+all_yr_overlap
+
+ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_overlap_annual_map_male.png")), 
+       all_yr_overlap, width = 10, height = 9, dpi = 300)
 
 
 
@@ -368,17 +425,9 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","rams_UD_yr_hill
 # Input: all_poly (sf) with columns id, area, th, month, year, geometry
 # ============================================================================
 
-library(sf)
-library(dplyr)
-library(ggplot2)
-
-# by yr: 
-#st_write(all_poly, path("02_draft_outputs", "sheep_yr_polygons_bbmm30.gpkg"))
-
 # by yr and month 
 all_poly <- st_read(path("02_draft_outputs", "sheep_month_yr_polygons_bbmm30.gpkg"))
 st_crs(all_poly)= 3005
-
 
 # ---- 1. TIDY UP TYPES --------------------------------------------------------
 poly_df <- all_poly |>
@@ -422,10 +471,6 @@ month_year_summary <- poly_df |>
 month_year_summary
 
 
-
-poly_df_95 <- poly_df |> filter(th == 95) 
-
-
 # ============================================================================
 # 3. PLOTS
 # ============================================================================
@@ -440,10 +485,8 @@ p1 <- ggplot(poly_df, aes(x = month, y = area)) +
   theme(legend.position = "none")   # drop if you want the id colour legend
 p1
 
-
 ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","UD_bbmm_by_month.png"), 
        p1, width = 10, height = 7, dpi = 300)
-
 
 
 
@@ -457,8 +500,12 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","UD_bbmm_by_mont
 alyr <- st_read(path("02_draft_outputs", "sheep_yr_polygons_bbmm30.gpkg")) |> mutate(type = "annual")
 sum <- st_read(path("02_draft_outputs", "sheep_summer_yr_polygons_bbmm30.gpkg")) |> mutate(type = "summer") |> rename("year" = year_pst)
 win <-  st_read(path("02_draft_outputs", "sheep_winter_yr_polygons_bbmm30.gpkg"))|> mutate(type = "winter")|> rename("year" = winter_year)
+rut <- st_read(path("02_draft_outputs","sheep_rut_yr_polygons_bbmm30.gpkg"))|> mutate(type = "rut")|> rename("year" = year_pst)
+lamb <- st_read(path("02_draft_outputs","ewes_lambing_yr_polygons_20260801bb.gpkg"))|> mutate(type = "lamb") |> select(-id) |> rename("id" = tag_idn)
+st_crs(lamb) =3005
 
-uds <- rbind(alyr, sum, win) |> 
+
+uds <- rbind(alyr, sum, win,rut,lamb) |> 
   left_join(id_key, by = c("id" = "tag_idn")) |> 
   st_drop_geometry() 
 
@@ -471,6 +518,9 @@ uds <- left_join(uds, age_lookup1, by = c("id" = "tag_idn", "year" = "year"))
 
 poly_df_95 <- uds |> filter(th == 95) 
 
+poly_df_95 <- poly_df_95 |> 
+  filter(area >100)
+
 ## Tables  
 uds_sum <- poly_df_95 |>
   group_by( type, sex) |>
@@ -479,36 +529,29 @@ uds_sum <- poly_df_95 |>
             mean_area = mean(area),
             min_area = min(area),
             max_area = max(area))
+
+uds_sum
+
+# average % larger = 
+#261/1443
+#289/1303
+
+
+# # ---- 2. SUMMARY TABLE: area by month x th (pooled across id and year) ------
+# type_summary <- uds |>
+#   group_by(type, sex, th, Age_annuli_est, sheep_class) |>
+#   summarise(
+#     n      = n(),
+#     mean   = mean(area, na.rm = TRUE),
+#     median = median(area, na.rm = TRUE),
+#     sd     = sd(area, na.rm = TRUE),
+#     se     = sd / sqrt(n),
+#     .groups = "drop"
+#   )
 # 
-# 
-# uds_sum <- uds |> 
-#   filter(th == 95) |>
-#   group_by( type, sex, sheep_class) |> 
-#   summarise(count = n(), 
-#             median_area = median(area),
-#             mean_area = mean(area),
-#             min_area = min(area),
-#             max_area = max(area))
-# 
+# type_summary
 
-
-
-# ---- 2. SUMMARY TABLE: area by month x th (pooled across id and year) ------
-type_summary <- uds |>
-  group_by(type, sex, th, Age_annuli_est, sheep_class) |>
-  summarise(
-    n      = n(),
-    mean   = mean(area, na.rm = TRUE),
-    median = median(area, na.rm = TRUE),
-    sd     = sd(area, na.rm = TRUE),
-    se     = sd / sqrt(n),
-    .groups = "drop"
-  )
-
-type_summary
-
-poly_df_95 <- uds |> filter(th == 95) 
-
+#poly_df_95 <- uds |> filter(th == 95) 
 
 # ============================================================================
 # 3. PLOTS with estimated age 
@@ -520,6 +563,7 @@ p1 <- ggplot(uds, aes(x = type, y = area)) +
   geom_jitter(aes(colour = sex), width = 0.15, alpha = 0.4, size = 1.5) +
   #geom_jitter(colour = "darkblue", width = 0.15, alpha = 0.2, size = 1.5) +
   facet_wrap(~Age_annuli_est, labeller = label_both) +
+  scale_colour_manual(name = "sex", values = c("female" = "firebrick", "male" = "steelblue")) +
   #labs(x = type, y = "area (ha)") +
   theme()#legend.position = "none")   # drop if you want the id colour legend
 
@@ -530,6 +574,110 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","annual_sum_win_
 
 
 
+
+
+
+## UP TO HERE 
+
+
+##########################################################################
+## compare the rut size 
+## summary of areas for each of the polygons generated above
+# generate a table with the area of each polygon for each sex and age class for each of the time periods (year, winter, summer)
+
+rut <-  st_read(path("02_draft_outputs", "sheep_rut_yr_polygons_bbmm30.gpkg"))
+
+uds <- rut |> 
+  left_join(id_key, by = c("id" = "tag_idn")) |> 
+  st_drop_geometry() 
+
+# update the age so each year the age is updated based on the year of capture and the year of the polygon.ueat
+age_lookup1 <- age_lookup |> 
+  select( -Age_annuli, -cap_year) |> #cap_year, -sex) |> 
+  rename("year"= year_pst)
+
+uds <- left_join(uds, age_lookup1, by = c("id" = "tag_idn", "year_pst" = "year"))
+
+poly_df_95 <- uds |> filter(th == 95) |> filter(sex == "male")
+
+## RUT 
+poly_df_95 <- poly_df_95 |> 
+  mutate(rut_class = case_when(
+    sheep_class == "class 3" ~ "mature",
+    sheep_class == "class 4" ~ "mature"
+  )) |> 
+  filter(rut_class =="mature")
+
+## Tables  
+uds_sum_sc <- poly_df_95 |>
+  group_by( rut_class) |>
+  summarise(count = n(),
+            median_area = median(area),
+            mean_area = mean(area),
+            min_area = min(area),
+            max_area = max(area))
+
+
+## Tables  
+uds_sum_sc <- poly_df_95 |>
+  group_by( sheep_class) |>
+  summarise(count = n(),
+            median_area = median(area),
+            mean_area = mean(area),
+            min_area = min(area),
+            max_area = max(area))
+
+
+uds_sum <- poly_df_95 |>
+  group_by(  Age_annuli_est) |>
+  summarise(count = n(),
+            median_area = median(area),
+            mean_area = mean(area),
+            min_area = min(area),
+            max_area = max(area))
+
+
+# bar chart of males TO DO: 
+#ggplot(poly_df_95)+
+#  geom_point(aes(sheep_class, area ))
+
+p1 <- ggplot(poly_df_95, aes(x = sheep_class, y = area)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6) +
+  #geom_jitter(aes(colour = id), width = 0.15, alpha = 0.4, size = 1.5) +
+  geom_jitter(colour = "darkblue", width = 0.15, alpha = 0.4, size = 1.5) +
+  #facet_wrap(~year_pst, labeller = label_both) +
+  labs(x = NULL, y = "area (ha)") +
+  theme(legend.position = "none")   # drop if you want the id colour legend
+p1
+
+ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","boxplot_rut_males_area_ageclass.png"), 
+       p1, width = 10, height = 7, dpi = 300)
+
+# 
+# p2 <- ggplot(poly_df_95, aes(x = as.character(Age_annuli_est), y = area)) +
+#   geom_boxplot(outlier.shape = NA, alpha = 0.6) +
+#   #geom_jitter(aes(colour = id), width = 0.15, alpha = 0.4, size = 1.5) +
+#   geom_jitter(colour = "darkblue", width = 0.15, alpha = 0.4, size = 1.5) +
+#  # facet_wrap(~year_pst, labeller = label_both) +
+#   labs(x = NULL, y = "area (ha)") +
+#   theme(legend.position = "none")   # drop if you want the id colour legend
+# p2
+# 
+# ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","UD_bbmm_by_month.png"), 
+#        p1, width = 10, height = 7, dpi = 300)
+
+
+
+
+
+
+
+
+
+
+
+
+
 #########################################
 
 ## how to determine the groups 
@@ -537,7 +685,7 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","annual_sum_win_
 ## Females - based on winter grouping 
 
 overlap_tbl <- read.csv(fs::path("02_draft_outputs", "sheep_winter_yr_overlap_pc.csv")) |> 
-  select(-X.1, -X)
+  select( -X)
 
 id_key1 <- id_key |> rename("id_1" = tag_idn) |> select(id_1, sex) |> 
   mutate(id_1 = as.integer(id_1))
