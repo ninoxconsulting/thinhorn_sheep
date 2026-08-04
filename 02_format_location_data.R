@@ -37,30 +37,12 @@ tfile <- read.table(file_i, header = T, sep = ",")|>
   mutate(tag_id = as.character(CollarSerialNumber )) |>
   mutate(Date = ymd(Date)) 
 
-length(tfile$CollarSerialNumber)
+#length(tfile$CollarSerialNumber)
 
 # 1) update tag ids for re-collared individuals 
 # need to split out the tag_ids to reflect the -1 and -2 versions 
 
 unique(tfile$tag_id)
-# Duplicate tags                    
-# 55669-1
-# 55669-2 # 2025-04-03
-# #
-# 55688-1	2024-03-04
-# 55688-2	2025-04-02
-# 
-# 55691-1	2024-03-02
-# 55691-2	2025-04-03
-# 
-# 55706-1	2024-03-02
-# 55706-2	2025-04-02
-# 
-# 55680-1	2024-03-05
-# 55680-2	2024-03-27
-# 
-# 55686-1	2024-03-04
-# 55686-2	2024-03-10
 
 # need to update the tag_id for these records based on the date threshold
 
@@ -179,7 +161,6 @@ tfile_subLL <- tfile_sub |>
 tfile_subLL <- tfile_subLL |> 
  filter(speed_ave < 5500)
 
-
 # rerun the distance and speed calcs after removing errors and check for more outliers 
 
 tfile_subLL <- tfile_subLL |> 
@@ -197,8 +178,6 @@ tfile_subLL <- tfile_subLL |>
 
 # check outputs 
 #sort(unique(tfile_subLL$speed_ave), decreasing = TRUE)
-
-
 
 ##################################################################################
 #4) removed fixes if their incoming and outgoing speeds exceeded 2 km/h (0.99 percentile of the dataset), 
@@ -400,11 +379,33 @@ traj_df <- traj_df |>
     tag_idn == "55699" & date_time_pst == "2025-03-30 02:00:00" ~ TRUE,
     tag_idn == "55699" & date_time_pst == "2025-07-24 02:00:00" ~ TRUE,
     tag_idn == "55699" & date_time_pst == "2026-02-21 23:00:00" ~ TRUE,
-    
-    
     .default = FALSE)
     )
     
+
+
+# read in the updated linework that was error checked on the draft outputs and remove the outlier locations
+lines <- st_read(fs::path("02_draft_outputs", "lines_sheep.gpkg")) 
+
+lines <- lines |> 
+  filter(errors == 1) |> 
+  group_by(tag_idn) |> 
+  mutate(lag_dif = as.numeric(difftime(date_time_from, lag(date_time_from), units = "hours"))) |> 
+  filter(lag_dif < 10)
+
+lines_to_drop <- lines |> 
+  st_drop_geometry() |> 
+  select(tag_idn, date_time_from) |> 
+  rename(date_time_pst = date_time_from) |> 
+  mutate(gps_spike2 = TRUE)
+
+# for any trad
+traj_df <- left_join(traj_df, lines_to_drop)
+
+# aa <- traj_df1 |> 
+#   filter(gps_spike2 == TRUE) |> 
+#   select(tag_idn, date_time_pst, gps_spike2)
+
 #aa <- traj_df |> 
 #  filter(tag_idn == "55670" & date_time_pst == ymd_hms("2024-03-08 04:00:00", tz = "PST"))
 
@@ -412,6 +413,7 @@ traj_df <- traj_df |>
 #write_sf(ttsf, fs::path("01_clean_data", "location_pointsTESST.gpkg"))
 
 traj_df <- traj_df |> 
+  filter(is.na(gps_spike2)) |> 
   filter(gps_spike == FALSE) |> 
   filter(gps_spike_manual == FALSE)
 
@@ -582,7 +584,6 @@ adehab_metrics <- purrr::map(uts, function(x){
   
   avemcp <- left_join( df1d,df, by = c("tag_idn", "date_pst"))
   
-  
   ## join everything together 
   tr <- ld(ltraj)
   tr$date_time_pst <- tr$date
@@ -630,11 +631,13 @@ out <- all |>
 out_sf <- st_as_sf(out, coords = c("X", "Y"), crs = 3005)
 
 # write this out 
-write.csv(out, fs::path("01_clean_data", "location_steps_all_20260721.csv")) # filtered down cols
-write.csv(all, fs::path("01_clean_data", "location_steps_all_raw_20260721.csv")) # all columns 
+write.csv(out, fs::path("01_clean_data", "location_steps_all_20260731.csv")) # filtered down cols
+write.csv(all, fs::path("01_clean_data", "location_steps_all_raw_20260731.csv")) # all columns 
+
 
 # write out subset cols as sf object 
-st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"), append = FALSE)
+#st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"), append = FALSE)
+st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260731.gpkg"), append = FALSE)
 
 
 
