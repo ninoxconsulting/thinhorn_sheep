@@ -16,7 +16,7 @@ clean_dir <- fs::path("01_clean_data")
 out_dir <- fs::path("02_draft_outputs/01_lamb_figures")
 
 # use .gpkg as csv drops time stamp
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"))
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260731.gpkg"))
 
 # add X and Y columns 
 allpts <- cbind(allpts, st_coordinates(allpts))
@@ -84,10 +84,24 @@ unique(all_lines$tag_idn)
 al<- all_lines |>
   mutate(date_time_from = date_time_pst ) |>
   mutate(date_time_to = DTend) |>
-  select(tag_idn,date_time_from, year_pst, date_time_to)
+  select(tag_idn,date_time_from, year_pst, date_time_to)|> 
+  mutate(year = year(date_time_from),
+         month = month(date_time_from)) 
 
+ala <- left_join(al, id_key, by = c("tag_idn" = "tag_idn"))
 
-#sf::st_write(al, fs::path("02_draft_outputs", "lines_sheep.gpkg"), driver = "GPKG", append = FALSE)
-## Note this one above was edited in QGIS to highlight the errors = 1. 
+sf::st_write(ala, fs::path("02_draft_outputs", "lines_sheep_20260803_details.gpkg"), driver = "GPKG", append = FALSE)
 
+#################################################################################
+
+# output the male sheep in rut period. 
+
+ala <- st_read(fs::path("02_draft_outputs", "lines_sheep_20260803_details.gpkg"))
+rala <- ala |> 
+  filter(sex == "male") |>
+  filter(sheep_class %in% c("class 3", "class 4")) 
+
+sf::st_write(rala, fs::path("02_draft_outputs", "lines_sheep_20260803_males.gpkg"), driver = "GPKG", append = FALSE)
+
+unique(rala$tag_idn)
 
