@@ -1,5 +1,12 @@
 #04_KDE_lambing
 
+# Note the KDEs are now generated in the lambing events script (August 2026). 
+# this script is no longer required for final output 
+# it does provide compairson of href anf bbmm methods for generating KDEs.
+
+
+
+
 # Summary 
 # this script uses the mlambing points generates in 03_lambing_events.R to 
 # generate KDE polygons for each ewe for each year at 50, 75, 90% UD. 
@@ -335,57 +342,6 @@ ggplot(hr_df, aes(x = year, y = area, colour = method, group = interaction(id, m
 
 
 # generate a plot per id 
-
-
-# get a list of all the ewes 
-ewes <- list.files (out_dir, pattern = ".gpkg")
-
-# loop through the combinations ofyear and id 
-
-all_ewes <- purrr::map(ewes, function(x){
-  
-  x <- ewes[1]
-  pts <- st_read(fs::path(out_dir, x))
-  
-  all_pts <- cbind(pts, st_coordinates(pts)) |> 
-    select(tag_idn, date_time_pst, X, Y, year_pst)
-  
-  xid <- unique(all_pts$tag_idn)
- 
-  sheep_yrs <- unique(all_pts$year_pst) 
-  
-  allyrs <- purrr::map(sheep_yrs, function(xx){
-    
-    print(xx)
-    xx = sheep_yrs[1]
-    
-    dbi <- all_pts |> 
-      filter(year_pst == xx)
-    
-    # # ---- 3e. spatial overlay for ONE id/year -- eyeball how the shapes differ ---
-    # focus_id   <- unique(hr_sf$id)[1]     # <-- change to inspect a specific animal
-    # focus_year <- unique(hr_sf$year)[1]   # <-- change to inspect a specific year
-    
-    hr_sf |>
-      filter(id == xid, year == xx) |>
-      ggplot() +
-      geom_sf(aes(colour = method, linetype = th), fill = NA, linewidth = 0.9) +
-      labs(colour = "Method", linetype = "Isopleth (%)",
-           title = paste("href vs BBMM contours -- id", xid, "year", xx))
-
-    
-    ggplot() +
-      geom_point(data = dbi, aes(x = X, y = Y),
-                 colour = "grey30", size = 0.8, alpha = 0.5) +
-      geom_sf(data = hr_sf |> filter(id == xid, year == xx),
-              aes(colour = method, linetype = th), fill = NA, linewidth = 0.9) +
-      coord_sf(datum = st_crs(hr_sf)) +
-      labs(colour = "Method", linetype = "Isopleth (%)",
-           title = paste("href vs BBMM contours -- id", focus_id, "year", focus_year),
-           subtitle = paste(nrow(dbi), "GPS fixes shown"))
-
-
-
 
 
 
