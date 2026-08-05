@@ -31,18 +31,21 @@ loc_dir <- fs::path(data_dir, "20260721")
 #list.files(loc_dir)
 #file_i <- fs::path(loc_dir, "Cumulative_D_13197_202623181141.txt")
 #file_i <- fs::path(loc_dir,"Cumulative_D_13197_202653101756.txt")
-file_i <- fs::path(loc_dir,"Cumulative_D_13197_20266214580.txt")
+#file_i <- fs::path(loc_dir,"Cumulative_D_13197_20266214580.txt")
+file_i <- fs::path(loc_dir,"Cumulative_D_13197_20267212643.txt") # august 4th 2026
 
 tfile <- read.table(file_i, header = T, sep = ",")|> 
   mutate(tag_id = as.character(CollarSerialNumber )) |>
   mutate(Date = ymd(Date)) 
 
+
+sort(unique(tfile$Date))
 #length(tfile$CollarSerialNumber)
 
 # 1) update tag ids for re-collared individuals 
 # need to split out the tag_ids to reflect the -1 and -2 versions 
 
-unique(tfile$tag_id)
+#unique(tfile$tag_id)
 
 # need to update the tag_id for these records based on the date threshold
 
@@ -78,6 +81,14 @@ tfileo <- st_as_sf(tfileo, coords = c("Longitude", "Latitude"), crs = 4326) |>
   bind_cols(tfileo) |> 
   rename(X = X, Y = Y)
 
+## t summary 
+bb <- tt |>  
+  group_by(tag_idn) |> 
+  count()
+
+#aa
+
+
 #######################################################
 # 1) remove records before or around deployment
 # filter any rows that are before the tag deployment date (based on ref data) and or within 24 hours of deployment
@@ -87,13 +98,13 @@ tt <- tfileo |>
   filter(Date > min(capture_date)) 
 
 ## check the outputs 
-aa <- tt |> 
-  group_by(tag_idn) |> 
-  summarise(capture_date = min(capture_date),
-            min_date = min(Date)) |> 
-  rowwise() |> 
-  # calculate differnce between capture and min_date
-  mutate( diff_days = as.numeric(difftime(min_date, capture_date, units = "days"))) #|> 
+#aa <- tt |> 
+#  group_by(tag_idn) |> 
+#  summarise(capture_date = min(capture_date),
+#            min_date = min(Date)) |> 
+#  rowwise() |> 
+#  # calculate differnce between capture and min_date
+#  mutate( diff_days = as.numeric(difftime(min_date, capture_date, units = "days"))) #|> 
 #  filter(diff_days > 1)
 
 
@@ -103,6 +114,7 @@ tt <- tt |>
   mutate(check = ifelse(!is.na(End_Date) & Date > End_Date, 1, 0))
   
 aa <- tt |> filter(check == 1)
+
 #unique(aa$tag_idn)
 aa <- aa |> 
   group_by(tag_idn) |> 
@@ -116,8 +128,14 @@ aa <- aa |>
   mutate( diff_days = as.numeric(difftime(max_date, end_date, units ="days")))  
 
 # drop the records post end-date
-tt <- tt |> 
-  filter(check !=1)
+unique(tt$check)
+
+## t summary 
+bb <- tt |>  
+  group_by(tag_idn) |> 
+  count()
+
+tt <- tt |> filter(check %in% c(NA, 0))
 
 
 ################################################################
@@ -126,14 +144,12 @@ tt <- tt |>
 ttt <- tt |> 
   dplyr::filter(X2D.3D != 2) 
          
-
 ## 3) convert to Pacific Standard time (PST)
 tfile_sub <- ttt |> 
   mutate(date_time = ymd_hm(paste(Date, Hour, Minute))) |> 
   mutate(date_time_pst = with_tz(date_time, tzone = "America/Vancouver")) |> 
   mutate(date_pst = as_date(date_time_pst)) |> 
   mutate(year_pst = year(date_pst))
-
 
 
 ############################################################################
@@ -178,6 +194,7 @@ tfile_subLL <- tfile_subLL |>
 
 # check outputs 
 #sort(unique(tfile_subLL$speed_ave), decreasing = TRUE)
+
 
 ##################################################################################
 #4) removed fixes if their incoming and outgoing speeds exceeded 2 km/h (0.99 percentile of the dataset), 
@@ -433,7 +450,10 @@ tfile_subLL <- traj_df |>
   ungroup()
 
 
-
+## t summary 
+#bb <- tfile_subLL |>  
+#  group_by(tag_idn) |> 
+#  count()
 
 #################################################################################
 ### 5: Calculate the step length per animal using adehabitat movements 
@@ -613,7 +633,6 @@ all = left_join( tfile_subLL, adehab_metrics_all, by = c("tag_idn","date_time_ps
 
 
 
-
 ### 4) potential to drop more records based on HPOD values (although not great outcomes: )
 #traj_df <- traj_df %>%
 # mutate(date_time_pst = format(date_time_pst, "%Y-%m-%d %H:%M:%S"))
@@ -631,13 +650,13 @@ out <- all |>
 out_sf <- st_as_sf(out, coords = c("X", "Y"), crs = 3005)
 
 # write this out 
-write.csv(out, fs::path("01_clean_data", "location_steps_all_20260731.csv")) # filtered down cols
-write.csv(all, fs::path("01_clean_data", "location_steps_all_raw_20260731.csv")) # all columns 
+write.csv(out, fs::path("01_clean_data", "location_steps_all_20260804.csv")) # filtered down cols
+write.csv(all, fs::path("01_clean_data", "location_steps_all_raw_2026084.csv")) # all columns 
 
 
 # write out subset cols as sf object 
 #st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"), append = FALSE)
-st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260731.gpkg"), append = FALSE)
+st_write(out_sf, fs::path("01_clean_data", "location_steps_all_20260804.gpkg"), append = FALSE)
 
 
 

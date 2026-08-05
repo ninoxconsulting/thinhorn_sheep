@@ -16,7 +16,7 @@ clean_dir <- fs::path("01_clean_data")
 out_dir <- fs::path("02_draft_outputs/01_lamb_figures")
 
 # use .gpkg as csv drops time stamp
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260731.gpkg"))
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260804.gpkg"))
 
 # add X and Y columns 
 allpts <- cbind(allpts, st_coordinates(allpts))
@@ -90,18 +90,18 @@ al<- all_lines |>
 
 ala <- left_join(al, id_key, by = c("tag_idn" = "tag_idn"))
 
-sf::st_write(ala, fs::path("02_draft_outputs", "lines_sheep_20260803_details.gpkg"), driver = "GPKG", append = FALSE)
+sf::st_write(ala, fs::path("02_draft_outputs", "lines_sheep_20260805_details.gpkg"), driver = "GPKG", append = FALSE)
 
 #################################################################################
 
-# output the male sheep in rut period. 
-
-ala <- st_read(fs::path("02_draft_outputs", "lines_sheep_20260803_details.gpkg"))
-rala <- ala |> 
-  filter(sex == "male") |>
-  filter(sheep_class %in% c("class 3", "class 4")) 
-
-sf::st_write(rala, fs::path("02_draft_outputs", "lines_sheep_20260803_males.gpkg"), driver = "GPKG", append = FALSE)
-
-unique(rala$tag_idn)
+# # output the male sheep in rut period. 
+# 
+# ala <- st_read(fs::path("02_draft_outputs", "lines_sheep_20260805_details.gpkg"))
+# rala <- ala |> 
+#   filter(sex == "male") |>
+#   filter(sheep_class %in% c("class 3", "class 4")) 
+# 
+# sf::st_write(rala, fs::path("02_draft_outputs", "lines_sheep_20260805_males.gpkg"), driver = "GPKG", append = FALSE)
+# 
+# unique(rala$tag_idn)
 

@@ -24,8 +24,8 @@ out_dir <- fs::path("02_draft_outputs/01_lamb_figures")
 
 # use .gpkg as csv drops time stamp
 #allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260721_TEST.gpkg"))
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260731.gpkg"))
-
+#allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260731.gpkg"))
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260804.gpkg"))
 # add X and Y columns 
 allpts <- cbind(allpts, st_coordinates(allpts))
 

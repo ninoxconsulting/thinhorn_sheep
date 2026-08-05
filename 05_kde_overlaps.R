@@ -554,6 +554,8 @@ write.csv(overlap_tbl, path("02_draft_outputs", "ewe_lambing_yr_overlap_pc.csv")
 
 # generate a function to calculate the summary per group 
 
+poly_clean = poly_annual_all
+
 summary_overlap <- function(poly_clean, out_name) {
   # ---- 5a. one polygon per id x th x year (union across months) --------------
   poly_annual <- poly_clean |>
@@ -920,7 +922,7 @@ ids_fidelity <- poly_annual |>
   filter(th == focus_th_fidelity) |>
   st_drop_geometry() |>
   count(id, name = "n_years") |>
-  filter(n_years >= 2) |>       # drop ids with only one year -- nothing to compare
+  #filter(n_years >= 2) |>       # drop ids with only one year -- nothing to compare
   pull(id) |>
   sort()
 
@@ -967,6 +969,6 @@ all_yr_overlap<-wrap_elements(panel_grid) / wrap_elements(shared_legend) +
 
 all_yr_overlap
 
-ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_overlap_males_Rut_map_th", focus_th,".png")), 
-       all_yr_overlap, width = 8, height = 8, dpi = 300)
+ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_overlap_males_Rut_map_th", focus_th_fidelity,".png")), 
+       all_yr_overlap, width = 10, height = 8, dpi = 300)
 

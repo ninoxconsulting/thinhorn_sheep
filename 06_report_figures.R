@@ -35,7 +35,7 @@ bg = ne_countries(scale = "medium", continent = 'north america', returnclass = "
 bg <- bg |> select(admin, continent)
 
 # use .gpkg as csv drops time stamp
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260731.gpkg"))
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260804.gpkg"))
 
 # add X and Y columns 
 allpts <- cbind(allpts, st_coordinates(allpts))
@@ -172,9 +172,9 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","sheep_duration_
 
 # ------------------------------------------------------------
 # 1. Main map: all GPS points over hillshade
-# ------------------------------------------------------------
-# read in the location data # use .gpkg as csv drops time stamp
-allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260731.gpkg"))
+# -----------------------------------------------------------
+
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260804.gpkg"))
 allpts1 <- allpts |> 
   select(tag_idn, date_pst.y,Age_annuli, sheep_class, sex) |> 
   group_by(tag_idn, date_pst.y) |> 
@@ -357,9 +357,16 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures", paste0("UD_over
 
 ## repeat for males 
 rams <- all_poly |> filter(sex == "male")
-
+#all_poly
 poly_annual <- rams |> 
   mutate(year = as.factor(year))
+
+length(unique(rams$id))
+missing <- unique(id_key$tag_idn)[!unique(id_key$tag_idn) %in% unique(all_poly$id)]
+
+id_key_m <- id_key |> filter(sex =="male")
+missing <- unique(id_key$tag_idn)[!unique(id_key$tag_idn) %in% unique(all_poly$id)]
+
 
 ids_fidelity <- poly_annual |>
   filter(th == focus_th_fidelity) |>
@@ -475,6 +482,16 @@ month_year_summary
 # 3. PLOTS
 # ============================================================================
 
+poly_df |> 
+  group_by(sex) |> 
+  count()
+
+bb <- poly_df |> 
+  group_by(id, sex) |> 
+  count()
+
+
+
 # ---- 3a. boxplot: every id's area by month, one panel per isopleth ---------
 p1 <- ggplot(poly_df, aes(x = month, y = area)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.6) +
@@ -557,14 +574,16 @@ uds_sum
 # 3. PLOTS with estimated age 
 # ============================================================================
 
+uds1 <- uds |> filter(type %in% c("annual", "summer", "winter")) 
+
 # ---- 3a. boxplot: every id's area by month, one panel per isopleth ---------
-p1 <- ggplot(uds, aes(x = type, y = area)) +
+p1 <- ggplot(uds1, aes(x = type, y = area)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.6) +
   geom_jitter(aes(colour = sex), width = 0.15, alpha = 0.4, size = 1.5) +
   #geom_jitter(colour = "darkblue", width = 0.15, alpha = 0.2, size = 1.5) +
   facet_wrap(~Age_annuli_est, labeller = label_both) +
   scale_colour_manual(name = "sex", values = c("female" = "firebrick", "male" = "steelblue")) +
-  #labs(x = type, y = "area (ha)") +
+  labs(x ="season", y = "area (ha)") +
   theme()#legend.position = "none")   # drop if you want the id colour legend
 
 p1
