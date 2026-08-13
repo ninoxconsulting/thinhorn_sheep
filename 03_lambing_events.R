@@ -420,9 +420,31 @@ point_data <- highlight_ranges |>
     year_f    = factor(year)
   )
 
+# p_lamb_points <- ggplot(point_data, aes(x = doy_mid, y = tag_idn_f)) +
+#   geom_point(aes(colour = year_f, alpha = confidence), size = 3) +
+#   scale_alpha_manual(values = c("likely" = 1, "possible" = 0.35)) +
+#   scale_colour_viridis_d(option = "D", begin = 0.2, end = 0.99) +
+#   scale_x_continuous(
+#     breaks = yday(seq(ymd("2000-05-01"), ymd("2000-06-30"), by = "1 week")),
+#     labels = format(seq(ymd("2000-05-01"), ymd("2000-06-30"), by = "1 week"), "%b %d"),
+#     minor_breaks = NULL,
+#     limits = c(yday(ymd("2000-05-01")), yday(ymd("2000-06-30")))
+#   ) +
+#   labs(#title = "Estimated lambing date by ewe and year",
+#        x = "Date (Julian day)", y = "Ewe (Tag ID)",
+#        colour = "Year", alpha = "Confidence") +
+#   theme_minimal() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+#         panel.grid.minor = element_blank())
+# 
+# print(p_lamb_points)
+# 
+# ggsave(fs::path(out_dir, "lambing_date_points_by_ewe.png"), p_lamb_points,
+#        width = 11, height = 8)
+
 p_lamb_points <- ggplot(point_data, aes(x = doy_mid, y = tag_idn_f)) +
-  geom_point(aes(colour = year_f, alpha = confidence), size = 3) +
-  scale_alpha_manual(values = c("likely" = 1, "possible" = 0.35)) +
+  geom_point(aes(colour = year_f, shape = confidence), size = 3) +
+  scale_shape_manual(values = c("likely" = 15, "possible" = 17)) +
   scale_colour_viridis_d(option = "D", begin = 0.2, end = 0.99) +
   scale_x_continuous(
     breaks = yday(seq(ymd("2000-05-01"), ymd("2000-06-30"), by = "1 week")),
@@ -431,17 +453,15 @@ p_lamb_points <- ggplot(point_data, aes(x = doy_mid, y = tag_idn_f)) +
     limits = c(yday(ymd("2000-05-01")), yday(ymd("2000-06-30")))
   ) +
   labs(#title = "Estimated lambing date by ewe and year",
-       x = "Date (Julian day)", y = "Ewe (Tag ID)",
-       colour = "Year", alpha = "Confidence") +
+    x = "Date (Julian day)", y = "Ewe (Tag ID)",
+    colour = "Year", shape = "Confidence") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         panel.grid.minor = element_blank())
 
 print(p_lamb_points)
-
-ggsave(fs::path(out_dir, "lambing_date_points_by_ewe.png"), p_lamb_points,
+ggsave(fs::path(out_dir, "lambing_date_points_by_ewe_v2.png"), p_lamb_points,
        width = 11, height = 8)
-
 
 ######################################################################
 # summary of range of mini and maximum lambing dates for each ewe across years
