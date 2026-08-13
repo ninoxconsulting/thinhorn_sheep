@@ -9,15 +9,51 @@ library(ggraph)
 library(patchwork)
 library(Polychrome) 
 
+# read in the summary data 
+clean_dir <- fs::path("01_clean_data")
+out_dir <- fs::path("02_draft_outputs/01_lamb_figures")
+
+# use .gpkg as csv drops time stamp
+allpts <- st_read(fs::path("01_clean_data", "location_steps_all_20260804.gpkg"))
+
+# generate a key to be used in plots below
+id_key <- allpts |> 
+  select(tag_idn, sex,Age_annuli, sheep_class) |>
+  st_drop_geometry() |> 
+  unique() 
+
+id_key <- id_key |> 
+  mutate(herd = case_when(
+    tag_idn %in% c("55692", "55698", "556912", "58856","556692" ) ~ "blue",
+    tag_idn %in% c("55702", "55707","55708") ~ "red",
+    tag_idn %in% c("55683", "55687","55690", "55704", "55693", "55701", "55670","55674","55676") ~ "red",
+    tag_idn %in% c("55684","55681", "55699","55695","55679", '55694', '55677', '55678', '55705', '55700') ~ "green",
+    tag_idn %in% c("55689", "55672","556802", "55673", "55675", "55697", "55671", "55703", "557062","556882", "58857") ~ "green", #"55701", "55670","55674","55676") ~ "red",
+    TRUE ~ "Other"
+  ))
+
+
 #allyrs <- summary_overlap(poly_annual_all, "sheep_byid_all_yr_overlap_pc.csv")
 #summer <- summary_overlap(poly_summer, "sheep_byid_summer_yr_overlap_pc")
 #winter <- summary_overlap(poly_winter, "sheep_byid_winter_yr_overlap_pc.csv")
 #lamb <- summary_overlap(poly_lamb, "sheep_byid_lamb_yr_overlap_pc.csv")
 
-overlap_data <- read.csv(fs::path("02_draft_outputs", "sheep_rut_yr_overlap_pc.csv")) |> 
+overlap_data_all <- read.csv(fs::path("02_draft_outputs", "sheep_rut_yr_overlap_pc.csv")) |> 
   select( -X) |> 
   mutate(id_1 = as.character(id_1),
     id_2 = as.character(id_2))
+
+# greenherd <- id_key |> 
+#   filter(herd == "green") |> 
+#   pull(tag_idn) |> 
+#   as.character()
+
+overlap_data <- overlap_data_all %>%
+  filter(year >= 2019) %>%
+  mutate(id_1 = as.character(id_1),
+         id_2 = as.character(id_2))# |> 
+ # filter(id_1 %in% greenherd | id_2 %in% greenherd)
+  
 
 sex_age_lookup <- id_key %>%
   distinct(tag_idn, sex, Age_annuli) %>%
@@ -118,6 +154,8 @@ ggsave(fs::path("02_draft_outputs", "06_report_summary_figures","rut_50_overlap_
 
 ###############################################################################
 ###############################################################################
+
+
 
 
 # repeat the plots for annual range with 50th? 
